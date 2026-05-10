@@ -333,11 +333,20 @@ impl App {
                 }
             }
             Command::ConfirmDialog => {
+                let is_ai_command = self.dialog.as_ref()
+                    .map(|d| matches!(d.kind, crate::ui::dialog::DialogKind::AiCommand))
+                    .unwrap_or(false);
+
                 self.execute_dialog_operation()?;
-                self.dialog = None;
-                self.mode = AppMode::Normal;
-                self.left_panel.refresh()?;
-                self.right_panel.refresh()?;
+
+                // AiCommand는 execute_dialog_operation 내에서 mode를 이미 AiChat으로 설정했으므로
+                // 여기서 mode를 Normal로 변경하면 안 됨
+                if !is_ai_command {
+                    self.dialog = None;
+                    self.mode = AppMode::Normal;
+                    self.left_panel.refresh()?;
+                    self.right_panel.refresh()?;
+                }
             }
             Command::CancelDialog => {
                 self.dialog = None;
