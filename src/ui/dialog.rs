@@ -12,6 +12,8 @@ pub enum DialogKind {
     Pack,
     AiCommand,
     BatchRename,
+    AddNote,
+    GenerateScript,
 }
 
 #[derive(Clone, Debug)]
@@ -116,6 +118,28 @@ impl DialogState {
         }
     }
 
+    pub fn new_add_note(path: &str, existing_note: Option<String>) -> Self {
+        let input = existing_note.unwrap_or_default();
+        let cursor = input.len();
+        DialogState {
+            kind: DialogKind::AddNote,
+            input,
+            cursor,
+            message: format!("📝 파일 메모/태그: {}", path),
+            error: None,
+        }
+    }
+
+    pub fn new_generate_script(selected_count: usize) -> Self {
+        DialogState {
+            kind: DialogKind::GenerateScript,
+            input: String::new(),
+            cursor: 0,
+            message: format!("📜 {} 개 파일 배치 작업 스크립트 생성", selected_count),
+            error: None,
+        }
+    }
+
     pub fn insert_char(&mut self, c: char) {
         if self.cursor <= self.input.len() {
             self.input.insert(self.cursor, c);
@@ -186,6 +210,8 @@ pub fn render_dialog(frame: &mut Frame, area: Rect, dialog: &DialogState) {
         DialogKind::Pack => ("  📦 압축 파일 생성  ", Color::Yellow),
         DialogKind::AiCommand => ("  🤖 AI 명령 실행  ", Color::Magenta),
         DialogKind::BatchRename => ("  ✏️  배치 리네이밍  ", Color::Cyan),
+        DialogKind::AddNote => ("  📝 파일 메모/태그  ", Color::Yellow),
+        DialogKind::GenerateScript => ("  📜 배치 스크립트 생성  ", Color::Green),
         };
 
 
@@ -286,6 +312,8 @@ pub fn render_dialog(frame: &mut Frame, area: Rect, dialog: &DialogState) {
                 DialogKind::Rename => "새 이름:",
                 DialogKind::AiCommand => "작업 지시 (예: log 파일 삭제, 사진 images 폴더로 이동):",
                 DialogKind::BatchRename => "이름 변경 패턴 (예: 날짜순 정렬, 접두사 추가):",
+                DialogKind::AddNote => "메모 및 태그 (#태그 형식 권장):",
+                DialogKind::GenerateScript => "스크립트 지시사항 (예: 모두 WebP로 변환, PDF 합치기):",
                 _ => "",
             };
             frame.render_widget(

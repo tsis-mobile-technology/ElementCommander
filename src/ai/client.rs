@@ -150,11 +150,12 @@ impl AiClient {
             .and_then(|c| c.get(0))
             .ok_or_else(|| anyhow!("응답에 내용이 없습니다"))?;
 
-        let content = choice
+        let mut content = choice
             .get("message")
             .and_then(|m| m.get("content"))
             .and_then(|c| c.as_str())
-            .unwrap_or("");
+            .unwrap_or("")
+            .to_string();
 
         let thinking = choice
             .get("message")
@@ -162,10 +163,22 @@ impl AiClient {
             .and_then(|c| c.as_str())
             .map(|s| s.to_string());
 
+        // Qwen 모델은 content가 비어있고 reasoning_content에 실제 응답을 넣을 수 있음
+        if content.is_empty() {
+            if let Some(reasoning) = &thinking {
+                tracing::debug!("content가 비어있음, reasoning_content에서 JSON 추출 시도...");
+                if let Some(start) = reasoning.find('[') {
+                    if let Some(end) = reasoning.rfind(']') {
+                        content = reasoning[start..=end].to_string();
+                    }
+                }
+            }
+        }
+
         tracing::debug!("AI 명령 해석 응답: {} 글자", content.len());
         tracing::debug!("AI 응답 내용: {}", content);
 
-        Ok(crate::ai::AiResponse::new(thinking, content.to_string()))
+        Ok(crate::ai::AiResponse::new(thinking, content))
     }
 
     pub async fn batch_rename(
@@ -174,8 +187,12 @@ impl AiClient {
         current_dir: &str,
         file_list: &str,
     ) -> Result<crate::ai::AiResponse> {
+        eprintln!("\n[배치리네이밍] ===== 배치 리네이밍 API 호출 시작 =====");
+        eprintln!("[배치리네이밍] URL: {}/chat/completions", self.base_url);
+        eprintln!("[배치리네이밍] Model: {}", self.model);
+
         let prompt = format!(
-            "You are a file manager. Return ONLY a JSON array. No other text.\n\nCurrent directory: {}\n\nFiles in this directory:\n{}\n\nUser request: Apply this rename pattern to ALL files above: {}\n\nRespond ONLY with this JSON format (no explanations, no markdown, just the array):\n[\n  {{\"op\": \"rename\", \"from\": \"/absolute/path/to/file.ext\", \"to\": \"new_name.ext\"}}\n]\n\nRules:\n1. All paths must be absolute (start with /)\n2. All paths must be inside {}\n3. Only list files that exist in the directory above\n4. 'to' is ONLY the new filename, no path\n5. Process EVERY file in the list\n6. Return ONLY the JSON array, nothing else",
+            "You are a file manager. Return ONLY a JSON array. No other text.\n\nCurrent directory: {}\n\nFiles in this directory:\n{}\n\nUser request: Apply this rename pattern to ALL files above: {}\n\nRespond ONLY with this JSON format (no explanations, no markdown, just the array):\n[\n  {{\"op\": \"rename\", \"from\": \"/absolute/path/to/file.txt\", \"to\": \"newname.txt\"}}\n]\n\nRules:\n1. All paths must be absolute (start with /)\n2. All paths must be inside {}\n3. Only list files that exist in the directory above\n4. 'to' is ONLY the new filename, no path\n5. Process EVERY file in the list\n6. Return empty array [] if no valid renames\n7. Return ONLY the JSON array, nothing else",
             current_dir, file_list, pattern, current_dir
         );
 
@@ -194,6 +211,7 @@ impl AiClient {
             "max_tokens": 1024,
         });
 
+        eprintln!("[배치리네이밍] HTTP 요청 전송 중...");
         let response = self
             .client
             .post(&url)
@@ -202,9 +220,12 @@ impl AiClient {
             .send()
             .await
             .map_err(|e| {
+                eprintln!("[배치리네이밍] ❌ HTTP 요청 실패: {}", e);
                 tracing::error!("AI API 요청 실패: {}", e);
                 anyhow!("AI API 요청 실패: {}", e)
             })?;
+
+        eprintln!("[배치리네이밍] HTTP 응답 수신: {}", response.status());
 
         if !response.status().is_success() {
             let status = response.status();
@@ -212,6 +233,7 @@ impl AiClient {
                 .text()
                 .await
                 .unwrap_or_else(|_| "Unknown error".to_string());
+            eprintln!("[배치리네이밍] ❌ API 오류: {} - {}", status, error_text);
             tracing::error!("AI API 오류: {} - {}", status, error_text);
             return Err(anyhow!("AI API 오류 ({}): {}", status, error_text));
         }
@@ -220,20 +242,33 @@ impl AiClient {
             .json()
             .await
             .map_err(|e| {
+                eprintln!("[배치리네이밍] ❌ JSON 파싱 실패: {}", e);
                 tracing::error!("응답 파싱 실패: {}", e);
                 anyhow!("응답 파싱 실패: {}", e)
             })?;
 
+        eprintln!("[배치리네이밍] JSON 파싱 성공");
+        eprintln!("[배치리네이밍] 전체 응답: {:?}", data);
+
         let choice = data
             .get("choices")
             .and_then(|c| c.get(0))
-            .ok_or_else(|| anyhow!("응답에 내용이 없습니다"))?;
+            .ok_or_else(|| {
+                eprintln!("[배치리네이밍] ❌ 응답에 choices[0]이 없음");
+                anyhow!("응답에 내용이 없습니다")
+            })?;
 
-        let content = choice
+        eprintln!("[배치리네이밍] choice[0]: {:?}", choice);
+
+        let message = choice.get("message");
+        eprintln!("[배치리네이밍] message 필드: {:?}", message);
+
+        let mut content = choice
             .get("message")
             .and_then(|m| m.get("content"))
             .and_then(|c| c.as_str())
-            .unwrap_or("");
+            .unwrap_or("")
+            .to_string();
 
         let thinking = choice
             .get("message")
@@ -241,10 +276,133 @@ impl AiClient {
             .and_then(|c| c.as_str())
             .map(|s| s.to_string());
 
-        tracing::debug!("AI 배치 리네이밍 응답: {} 글자", content.len());
-        tracing::debug!("AI 응답 내용: {}", content);
+        // Qwen 모델은 content가 비어있고 reasoning_content에 실제 응답을 넣을 수 있음
+        // 이 경우 reasoning_content에서 JSON을 추출
+        if content.is_empty() {
+            if let Some(reasoning) = &thinking {
+                eprintln!("[배치리네이밍] content가 비어있음, reasoning_content에서 JSON 추출 시도...");
+                // reasoning_content에서 JSON 추출
+                if let Some(start) = reasoning.find('[') {
+                    if let Some(end) = reasoning.rfind(']') {
+                        let extracted = &reasoning[start..=end];
+                        eprintln!("[배치리네이밍] reasoning_content에서 추출한 JSON: {}", extracted);
+                        content = extracted.to_string();
+                    }
+                }
+            }
+        }
 
-        Ok(crate::ai::AiResponse::new(thinking, content.to_string()))
+        eprintln!("[배치리네이밍] 요청 패턴: {}", pattern);
+        eprintln!("[배치리네이밍] 요청 디렉토리: {}", current_dir);
+        eprintln!("[배치리네이밍] 파일 목록 ({}개): {}", file_list.lines().count(), file_list);
+        eprintln!("[배치리네이밍] 최종 AI 응답: {} 글자", content.len());
+        if !content.is_empty() {
+            eprintln!("[배치리네이밍] 응답 내용: {}", content);
+        } else {
+            eprintln!("[배치리네이밍] ⚠️  응답이 비어있음!");
+        }
+
+        Ok(crate::ai::AiResponse::new(thinking, content))
+    }
+
+    pub async fn interpret_search_query(
+        &self,
+        query: &str,
+    ) -> Result<crate::ai::AiResponse> {
+        let now = chrono::Local::now();
+        let prompt = format!(
+            "You are a file search expert. Convert the user's natural language search query into a structured JSON object.\n\n\
+            Current Date/Time: {}\n\n\
+            User query: \"{}\"\n\n\
+            Respond ONLY with a JSON object in this format (no explanations, no markdown):\n\
+            {{\n  \
+              \"pattern\": \"substring to match in filename (null if none)\",\n  \
+              \"extension\": \"file extension without dot (null if none)\",\n  \
+              \"min_size\": minimum size in bytes (null if none),\n  \
+              \"max_size\": maximum size in bytes (null if none),\n  \
+              \"modified_after\": \"ISO 8601 datetime string (null if none)\",\n  \
+              \"modified_before\": \"ISO 8601 datetime string (null if none)\"\n\
+            }}\n\n\
+            Rules:\n\
+            1. If the user mentions 'large files', set min_size to something like 104857600 (100MB).\n\
+            2. If the user mentions 'last week', calculate the date from the current date.\n\
+            3. Return null for fields that are not mentioned.\n\
+            4. Return ONLY the JSON object.",
+            now.to_rfc3339(), query
+        );
+
+        let url = format!("{}/chat/completions", self.base_url);
+
+        let body = json!({
+            "model": self.model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "temperature": 0.1,
+            "max_tokens": 512,
+        });
+
+        let response = self.client.post(&url).json(&body).send().await?;
+        let data: serde_json::Value = response.json().await?;
+
+        let choice = data.get("choices").and_then(|c| c.get(0))
+            .ok_or_else(|| anyhow!("응답에 내용이 없습니다"))?;
+
+        let mut content = choice.get("message").and_then(|m| m.get("content"))
+            .and_then(|c| c.as_str()).unwrap_or("").to_string();
+
+        let thinking = choice.get("message").and_then(|m| m.get("reasoning_content"))
+            .and_then(|c| c.as_str()).map(|s| s.to_string());
+
+        if content.is_empty() {
+            if let Some(reasoning) = &thinking {
+                if let Some(start) = reasoning.find('{') {
+                    if let Some(end) = reasoning.rfind('}') {
+                        content = reasoning[start..=end].to_string();
+                    }
+                }
+            }
+        }
+
+        Ok(crate::ai::AiResponse::new(thinking, content))
+    }
+
+    pub async fn generate_readme(&self, folder_info: String, file_contents: String) -> Result<crate::ai::AiResponse> {
+        let prompt = format!(
+            "You are a professional technical writer. Generate a comprehensive README.md for the following project.\n\n\
+            Folder Structure/Info:\n{}\n\n\
+            Key File Contents:\n{}\n\n\
+            Requirements:\n\
+            1. Use standard Markdown format.\n\
+            2. Include sections: Project Name, Description, Features, Getting Started, Usage, and License.\n\
+            3. Make it professional and visually appealing.\n\
+            4. Base the content on the provided file contents and folder structure.\n\
+            5. Respond ONLY with the Markdown content.",
+            folder_info, file_contents
+        );
+
+        self.query(&prompt).await
+    }
+
+    pub async fn generate_batch_script(&self, files: &str, instruction: &str) -> Result<crate::ai::AiResponse> {
+        let prompt = format!(
+            "You are a DevOps and script expert. Create an executable bash script for the following task.\n\n\
+            Target Files:\n{}\n\n\
+            Instruction: \"{}\"\n\n\
+            Requirements:\n\
+            1. Generate a robust BASH script.\n\
+            2. Handle file names with spaces correctly (use quotes).\n\
+            3. Add comments explaining each major step.\n\
+            4. Include a shebang line (#!/bin/bash).\n\
+            5. Provide safety checks (e.g., check if tools are installed if needed).\n\
+            6. Respond ONLY with the script code (no explanations).",
+            files, instruction
+        );
+
+        self.query(&prompt).await
     }
 
     pub async fn query(&self, prompt: &str) -> Result<crate::ai::AiResponse> {

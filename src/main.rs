@@ -32,6 +32,14 @@ async fn main() -> Result<()> {
 
     tracing::info!("=== hermes_tail 시작 ===");
 
+    // Panic hook to ensure terminal is restored
+    let original_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic_info| {
+        let _ = disable_raw_mode();
+        let _ = execute!(std::io::stdout(), LeaveAlternateScreen);
+        original_hook(panic_info);
+    }));
+
     // Setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();

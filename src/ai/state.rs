@@ -8,6 +8,7 @@ pub struct AiState {
     pub lines: Vec<LineContent>,
     pub scroll: u16,
     pub is_loading: bool,
+    #[allow(dead_code)]
     pub query: String,
     pub show_thinking: bool,  // thinking process 표시 여부
     pub thinking_lines: Vec<LineContent>,  // thinking process 섹션

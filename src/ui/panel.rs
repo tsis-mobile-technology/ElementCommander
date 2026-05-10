@@ -1,31 +1,32 @@
 use crate::panel::PanelState;
+use super::theme::Theme;
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, List, ListItem, ListState};
 
-pub fn render_panel(frame: &mut Frame, area: Rect, panel: &PanelState, is_active: bool) {
-    // 활성 패널: 밝은 파란색 배경, 흰색 텍스트
-    // 비활성 패널: 어두운 회색 배경, 회색 텍스트
+pub fn render_panel(frame: &mut Frame, area: Rect, panel: &PanelState, is_active: bool, theme: &Theme, notes: &crate::config::NotesStore) {
+    // 활성 패널: 테마 배경색, 흰색 텍스트
+    // 비활성 패널: 테마 비활성 배경색, 회색 텍스트
     let (border_style, _title_style, bg_color) = if is_active {
         (
             Style::default()
-                .fg(Color::White)
-                .bg(Color::Blue)
+                .fg(theme.active_border)
+                .bg(theme.active_bg)
                 .bold(),
             Style::default()
-                .fg(Color::Black)
-                .bg(Color::Yellow)
+                .fg(theme.active_cursor_fg)
+                .bg(theme.active_cursor_bg)
                 .bold(),
-            Color::Blue,
+            theme.active_bg,
         )
     } else {
         (
             Style::default()
-                .fg(Color::DarkGray)
-                .bg(Color::Black),
+                .fg(theme.inactive_border)
+                .bg(theme.inactive_bg),
             Style::default()
                 .fg(Color::Gray)
-                .bg(Color::Black),
-            Color::Black,
+                .bg(theme.inactive_bg),
+            theme.inactive_bg,
         )
     };
 
@@ -75,17 +76,25 @@ pub fn render_panel(frame: &mut Frame, area: Rect, panel: &PanelState, is_active
 
             let icon = if entry.is_dir { "📁" } else { "📄" };
 
+            // 메모 여부 확인
+            let note_indicator = if notes.get_note(&entry.path.to_string_lossy()).is_some() {
+                " [N]"
+            } else {
+                ""
+            };
+
             // 파일명 길이 제한 (너무 길면 생략 부호)
             // UTF-8 안전한 문자 단위 자르기
-            let display_name = if entry.name.chars().count() > name_width {
+            let mut display_name = if entry.name.chars().count() > name_width.saturating_sub(note_indicator.chars().count()) {
                 entry.name
                     .chars()
-                    .take(name_width.saturating_sub(1))
+                    .take(name_width.saturating_sub(1 + note_indicator.chars().count()))
                     .collect::<String>()
                     + "…"
             } else {
                 entry.name.clone()
             };
+            display_name.push_str(note_indicator);
 
             // 동적 너비로 텍스트 포맷
             let text = format!(
@@ -99,24 +108,24 @@ pub fn render_panel(frame: &mut Frame, area: Rect, panel: &PanelState, is_active
                 size = size_width - 2
             );
 
-            // 현재 항목: 더 강한 배경색
-            // 선택된 항목: 녹색
+            // 현재 항목: 테마 커서 색상
+            // 선택된 항목: 테마 선택 색상
             // 일반 항목: 배경색 상속
             let style = if is_current {
                 if is_active {
                     Style::default()
-                        .fg(Color::Black)
-                        .bg(Color::Yellow)
+                        .fg(theme.active_cursor_fg)
+                        .bg(theme.active_cursor_bg)
                         .bold()
                 } else {
                     Style::default()
-                        .fg(Color::Yellow)
-                        .bg(Color::DarkGray)
+                        .fg(theme.inactive_cursor_fg)
+                        .bg(theme.inactive_cursor_bg)
                         .bold()
                 }
             } else if is_selected {
                 Style::default()
-                    .fg(Color::Green)
+                    .fg(theme.selected_fg)
                     .bg(bg_color)
                     .bold()
             } else {
@@ -126,7 +135,7 @@ pub fn render_panel(frame: &mut Frame, area: Rect, panel: &PanelState, is_active
                         .bg(bg_color)
                 } else {
                     Style::default()
-                        .fg(Color::DarkGray)
+                        .fg(Color::Gray)
                         .bg(bg_color)
                 }
             };

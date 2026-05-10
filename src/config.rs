@@ -8,6 +8,64 @@ pub struct Config {
     pub ui: UiConfig,
     pub behavior: BehaviorConfig,
     pub bookmarks: Vec<Bookmark>,
+    #[serde(default)]
+    pub history: HistoryConfig,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct HistoryConfig {
+    pub last_left_path: Option<PathBuf>,
+    pub last_right_path: Option<PathBuf>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct FileNote {
+    pub memo: String,
+    pub tags: Vec<String>,
+    pub updated_at: chrono::DateTime<chrono::Local>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct NotesStore {
+    pub notes: std::collections::HashMap<String, FileNote>,
+}
+
+impl NotesStore {
+    pub fn load() -> Self {
+        let config_dir = dirs::config_dir()
+            .map(|p| p.join("hermes_tail"))
+            .unwrap_or_else(|| PathBuf::from(".hermes_tail"));
+        let path = config_dir.join("notes.json");
+
+        if let Ok(content) = fs::read_to_string(path) {
+            serde_json::from_str(&content).unwrap_or_default()
+        } else {
+            Self::default()
+        }
+    }
+
+    pub fn save(&self) -> Result<()> {
+        let config_dir = dirs::config_dir()
+            .map(|p| p.join("hermes_tail"))
+            .unwrap_or_else(|| PathBuf::from(".hermes_tail"));
+        fs::create_dir_all(&config_dir)?;
+        let path = config_dir.join("notes.json");
+        let content = serde_json::to_string_pretty(self)?;
+        fs::write(path, content)?;
+        Ok(())
+    }
+
+    pub fn get_note(&self, path: &str) -> Option<&FileNote> {
+        self.notes.get(path)
+    }
+
+    pub fn set_note(&mut self, path: String, memo: String, tags: Vec<String>) {
+        self.notes.insert(path, FileNote {
+            memo,
+            tags,
+            updated_at: chrono::Local::now(),
+        });
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -42,6 +100,7 @@ impl Default for Config {
                 default_sort: "name".to_string(),
             },
             bookmarks: Vec::new(),
+            history: HistoryConfig::default(),
         }
     }
 }

@@ -27,6 +27,7 @@ pub struct ViewerState {
     pub last_offset: u64,
     pub is_tail_active: bool,
     pub wrap: bool,
+    #[allow(dead_code)]
     pub viewport_height: usize,
 }
 
@@ -67,7 +68,7 @@ impl ViewerState {
         
         if state.format == FileFormat::Log {
             state.is_tail_active = true;
-            state.scroll_to_bottom();
+            state.scroll_to_bottom(height);
         }
 
         Ok(state)
@@ -126,15 +127,15 @@ impl ViewerState {
         self.lines = wrapped_lines;
     }
 
-    pub fn scroll_to_bottom(&mut self) {
-        if self.lines.len() > self.viewport_height {
-            self.scroll = self.lines.len() - self.viewport_height;
+    pub fn scroll_to_bottom(&mut self, viewport_height: usize) {
+        if self.lines.len() > viewport_height {
+            self.scroll = self.lines.len() - viewport_height;
         } else {
             self.scroll = 0;
         }
     }
 
-    pub fn append_new_content(&mut self, new_text: &str, width: usize) {
+    pub fn append_new_content(&mut self, new_text: &str, width: usize, viewport_height: usize) {
         let mut new_state = ViewerState {
             path: self.path.clone(),
             lines: Vec::new(),
@@ -143,7 +144,7 @@ impl ViewerState {
             last_offset: 0,
             is_tail_active: false,
             wrap: self.wrap,
-            viewport_height: self.viewport_height,
+            viewport_height,
         };
         
         // Temporarily load only new text to get styled/wrapped lines
@@ -159,12 +160,12 @@ impl ViewerState {
         }
 
         // Check if we were already at the bottom
-        let is_at_bottom = self.scroll + self.viewport_height >= self.lines.len().saturating_sub(2);
+        let is_at_bottom = self.scroll + viewport_height >= self.lines.len().saturating_sub(2);
 
         self.lines.extend(new_state.lines);
 
         if self.is_tail_active && is_at_bottom {
-            self.scroll_to_bottom();
+            self.scroll_to_bottom(viewport_height);
         }
     }
 
@@ -200,9 +201,13 @@ impl ViewerState {
                 Event::End(tag) => match tag {
                     TagEnd::Strong => bold = false,
                     TagEnd::Emphasis => italic = false,
-                    TagEnd::Heading(_) => {
+                    TagEnd::Heading(_) | TagEnd::Paragraph | TagEnd::Item => {
                         is_header = false;
                         self.push_line(&mut current_line);
+                        // 문단 뒤에 빈 줄 추가 (가독성)
+                        if matches!(tag, TagEnd::Paragraph) {
+                            self.lines.push(LineContent { raw: String::new(), styled: Vec::new() });
+                        }
                     }
                     TagEnd::CodeBlock => {
                         current_line.push((Color::Green, "```".to_string(), false));
@@ -289,12 +294,13 @@ impl ViewerState {
         self.scroll = self.scroll.saturating_sub(1);
     }
 
-    pub fn scroll_down(&mut self) {
-        if self.scroll < self.lines.len().saturating_sub(self.viewport_height) {
+    pub fn scroll_down(&mut self, viewport_height: usize) {
+        let max = self.lines.len().saturating_sub(viewport_height);
+        if self.scroll < max {
             self.scroll += 1;
         } else {
             // If already at bottom, stay there
-            self.scroll = self.lines.len().saturating_sub(self.viewport_height);
+            self.scroll = max;
         }
     }
 
@@ -302,8 +308,8 @@ impl ViewerState {
         self.scroll = self.scroll.saturating_sub(size);
     }
 
-    pub fn page_down(&mut self, size: usize) {
-        let max = self.lines.len().saturating_sub(self.viewport_height);
+    pub fn page_down(&mut self, size: usize, viewport_height: usize) {
+        let max = self.lines.len().saturating_sub(viewport_height);
         self.scroll = (self.scroll + size).min(max);
     }
 }

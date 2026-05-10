@@ -11,7 +11,8 @@ pub fn handle_event(event: Event) -> Command {
 
 pub fn handle_key_event(key: KeyEvent) -> Command {
     match key.code {
-        KeyCode::Char('q') | KeyCode::Esc => Command::Quit,
+        KeyCode::F(1) => Command::ShowHelp,
+        KeyCode::Char('q') if key.modifiers.contains(KeyModifiers::CONTROL) => Command::Quit,
         KeyCode::Char('g') if key.modifiers.contains(KeyModifiers::CONTROL) => Command::AiNaturalCommand,
         KeyCode::Tab => Command::SwitchPanel,
         KeyCode::Up => Command::CursorUp,
@@ -21,6 +22,7 @@ pub fn handle_key_event(key: KeyEvent) -> Command {
         KeyCode::Enter => Command::Navigate,
         KeyCode::Backspace => Command::GoParent,
         KeyCode::Insert => Command::ToggleSelect,
+        KeyCode::Esc => Command::ClearSelection,
         KeyCode::F(2) if key.modifiers.contains(KeyModifiers::SHIFT) => Command::Rename,
         KeyCode::F(2) => Command::Rename,
         KeyCode::F(3) => Command::View,
@@ -40,6 +42,9 @@ pub fn handle_key_event(key: KeyEvent) -> Command {
         KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiCodeStructure,
         KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiFileDiff,
         KeyCode::Char('a') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiFolderAnalysis,
+        KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiGenerateReadme,
+        KeyCode::Char('n') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiAddNote,
+        KeyCode::Char('x') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiGenerateScript,
         KeyCode::Char('b') if key.modifiers.contains(KeyModifiers::ALT) => Command::BatchRename,
         KeyCode::Char('h') if key.modifiers.contains(KeyModifiers::CONTROL) => Command::ToggleHidden,
         KeyCode::Char('l') if key.modifiers.contains(KeyModifiers::CONTROL) => Command::Refresh,

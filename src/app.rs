@@ -22,6 +22,7 @@ pub enum AppMode {
     Viewer,
     AiChat,
     AiCommandConfirm,
+    Help,
 }
 
 use tokio::sync::mpsc;
@@ -38,6 +39,8 @@ pub struct App {
     pub ai_command_state: Option<crate::ai::AiCommandState>,
     pub search_query: String,
     pub config: Config,
+    pub notes: crate::config::NotesStore,
+    pub theme: crate::ui::theme::Theme,
     pub should_quit: bool,
     pub tx: mpsc::UnboundedSender<Command>,
     pub rx: mpsc::UnboundedReceiver<Command>,
@@ -56,7 +59,21 @@ impl App {
         left_panel.set_show_hidden(show_hidden)?;
         right_panel.set_show_hidden(show_hidden)?;
 
+        // 히스토리 복구
+        if let Some(path) = &config.history.last_left_path {
+            if path.exists() && path.is_dir() {
+                let _ = left_panel.navigate_to(path.clone());
+            }
+        }
+        if let Some(path) = &config.history.last_right_path {
+            if path.exists() && path.is_dir() {
+                let _ = right_panel.navigate_to(path.clone());
+            }
+        }
+
         let (tx, rx) = mpsc::unbounded_channel();
+        let theme = crate::ui::theme::Theme::from_name(&config.ui.color_scheme);
+        let notes = crate::config::NotesStore::load();
 
         Ok(App {
             left_panel,
@@ -69,6 +86,8 @@ impl App {
             ai_command_state: None,
             search_query: String::new(),
             config,
+            notes,
+            theme,
             should_quit: false,
             tx,
             rx,
@@ -81,21 +100,25 @@ impl App {
         self.calculate_recursive_size(true);
         self.calculate_recursive_size(false);
 
-        loop {
-            terminal.draw(|frame| {
-                ui::render(frame, &self);
-            })?;
+        // 초기 화면 그리기
+        terminal.draw(|frame| {
+            ui::render(frame, &self);
+        })?;
 
+        loop {
             if self.should_quit {
                 break;
             }
 
+            let mut should_render = false;
+
             // 백그라운드 명령어 처리
             while let Ok(command) = self.rx.try_recv() {
                 self.handle_command(command)?;
+                should_render = true;
             }
 
-            if event::poll(Duration::from_millis(50))? {
+            if event::poll(Duration::from_millis(100))? {
                 let event = event::read()?;
                 let command = match self.mode {
                     AppMode::Dialog => handle_dialog_event(event, &mut self.dialog),
@@ -103,9 +126,17 @@ impl App {
                     AppMode::Viewer => self.handle_viewer_event(event),
                     AppMode::AiChat => crate::events::handle_ai_event(event),
                     AppMode::AiCommandConfirm => crate::events::handle_ai_command_confirm_event(event),
+                    AppMode::Help => Command::CancelDialog, // 도움말 닫기
                     _ => handle_event(event),
                 };
                 self.handle_command(command)?;
+                should_render = true;
+            }
+
+            if should_render {
+                terminal.draw(|frame| {
+                    ui::render(frame, &self);
+                })?;
             }
         }
 
@@ -176,7 +207,13 @@ impl App {
 
     pub fn handle_command(&mut self, command: Command) -> Result<()> {
         match command {
-            Command::Quit => self.should_quit = true,
+            Command::Quit => {
+                // 종료 전 히스토리 저장
+                self.config.history.last_left_path = Some(self.left_panel.path.clone());
+                self.config.history.last_right_path = Some(self.right_panel.path.clone());
+                let _ = self.config.save();
+                self.should_quit = true;
+            }
             Command::SwitchPanel => {
                 if !matches!(self.mode, AppMode::Viewer) {
                     self.active_panel = !self.active_panel;
@@ -192,7 +229,7 @@ impl App {
             }
             Command::CursorDown => {
                 if let Some(viewer) = &mut self.viewer {
-                    viewer.scroll_down();
+                    viewer.scroll_down(35);
                 } else {
                     let panel = self.active_panel_mut();
                     panel.cursor_down();
@@ -208,7 +245,7 @@ impl App {
             }
             Command::PageDown => {
                 if let Some(viewer) = &mut self.viewer {
-                    viewer.page_down(20);
+                    viewer.page_down(20, 35);
                 } else {
                     let panel = self.active_panel_mut();
                     panel.page_down(10);
@@ -254,11 +291,8 @@ impl App {
                 let panel = self.active_panel_mut();
                 panel.clear_selection();
             }
-            Command::Refresh => {
-                self.left_panel.refresh()?;
-                self.right_panel.refresh()?;
-                self.calculate_recursive_size(true);
-                self.calculate_recursive_size(false);
+            Command::ShowHelp => {
+                self.mode = AppMode::Help;
             }
             Command::ToggleHidden => {
                 self.config.ui.show_hidden = !self.config.ui.show_hidden;
@@ -440,7 +474,7 @@ impl App {
                                     let mut new_content = String::new();
                                     if file.seek(std::io::SeekFrom::Start(viewer.last_offset)).is_ok() {
                                         if file.read_to_string(&mut new_content).is_ok() {
-                                            viewer.append_new_content(&new_content, 100);
+                                            viewer.append_new_content(&new_content, 100, 35);
                                             viewer.last_offset = new_len;
                                         }
                                     }
@@ -745,6 +779,92 @@ impl App {
                     }
                 }
             }
+
+            Command::AiGenerateReadme => {
+                let entry = self.active_panel().get_current_entry();
+                let root_path = if let Some(e) = entry {
+                    if e.is_dir { e.path.clone() } else { self.active_panel().path.clone() }
+                } else {
+                    self.active_panel().path.clone()
+                };
+
+                let file_path = root_path.display().to_string();
+                tracing::info!("README 생성 시작: {}", file_path);
+                self.ai_state = Some(crate::ai::AiState::loading(format!("📝 README.md 생성 중: {}", file_path)));
+                self.mode = AppMode::AiChat;
+
+                let tx = self.tx.clone();
+                tokio::spawn(async move {
+                    let client = crate::ai::AiClient::new(
+                        "http://localhost:8080/v1".to_string(),
+                        "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                    );
+
+                    // 1. 폴더 구조 정보 수집
+                    let mut folder_info = format!("루트 폴더: {}\n", file_path);
+                    if let Ok(entries) = std::fs::read_dir(&root_path) {
+                        folder_info.push_str("항목 목록:\n");
+                        for entry in entries.flatten().take(30) {
+                            let name = entry.file_name().to_string_lossy().to_string();
+                            let type_str = if entry.path().is_dir() { "DIR" } else { "FILE" };
+                            folder_info.push_str(&format!("  - {} ({})\n", name, type_str));
+                        }
+                    }
+
+                    // 2. 핵심 파일 내용 수집
+                    let mut file_contents = String::new();
+                    let key_files = ["Cargo.toml", "package.json", "requirements.txt", "go.mod", "README.md", "src/main.rs", "main.py"];
+                    for filename in key_files {
+                        let path = root_path.join(filename);
+                        if path.exists() {
+                            if let Ok(content) = std::fs::read_to_string(&path) {
+                                let truncated = if content.len() > 2000 { format!("{}...", &content[..2000]) } else { content };
+                                file_contents.push_str(&format!("\n--- {} ---\n{}\n", filename, truncated));
+                            }
+                        }
+                    }
+
+                    match client.generate_readme(folder_info, file_contents).await {
+                        Ok(ai_response) => {
+                            let _ = tx.send(Command::AiResponse(ai_response));
+                        }
+                        Err(e) => {
+                            let _ = tx.send(Command::AiError(e.to_string()));
+                        }
+                    }
+                });
+            }
+
+            Command::AiAddNote => {
+                if let Some(entry) = self.active_panel().get_current_entry() {
+                    let path = entry.path.to_string_lossy().to_string();
+                    let existing_note = self.notes.get_note(&path).map(|n| n.memo.clone());
+                    self.dialog = Some(DialogState::new_add_note(&path, existing_note));
+                    self.mode = AppMode::Dialog;
+                }
+            }
+
+            Command::AiGenerateScript => {
+                let panel = self.active_panel();
+                let mut files: Vec<_> = panel.get_selected_entries().iter().map(|e| e.path.clone()).collect();
+                if files.is_empty() {
+                    if let Some(entry) = panel.get_current_entry() {
+                        files.push(entry.path.clone());
+                    }
+                }
+                if files.is_empty() {
+                    return Ok(());
+                }
+                let selected_count = files.len();
+                self.dialog = Some(DialogState::new_generate_script(selected_count));
+                self.mode = AppMode::Dialog;
+            }
+
+            Command::SearchConfirmResults(results) => {
+                self.active_panel_mut().set_find_results(results);
+                self.ai_state = None;
+                self.mode = AppMode::Normal;
+            }
             Command::AiResponse(ai_response) => {
                 tracing::info!("AI 응답 수신 - thinking: {:?}, result: {} 글자",
                     ai_response.thinking.as_ref().map(|t| t.len()),
@@ -800,37 +920,42 @@ impl App {
             Command::AiCommandConfirm => {
                 if let Some(command_state) = &self.ai_command_state {
                     let ops = command_state.ops.clone();
-                    let tx = self.tx.clone();
                     let panel_fs = self.active_panel().fs.clone();
 
-                    tokio::spawn(async move {
-                        for op in ops {
-                            match op {
-                                crate::commands::PlannedOp::Delete { path } => {
-                                    let is_dir = std::fs::metadata(&path)
-                                        .map(|m| m.is_dir())
-                                        .unwrap_or(false);
-                                    let _ = panel_fs.delete(&path, is_dir);
-                                }
-                                crate::commands::PlannedOp::Move { from, to } => {
-                                    let _ = panel_fs.move_entry(&from, &to);
-                                }
-                                crate::commands::PlannedOp::Copy { from, to } => {
-                                    let is_dir = std::fs::metadata(&from)
-                                        .map(|m| m.is_dir())
-                                        .unwrap_or(false);
-                                    let _ = panel_fs.copy(&from, &to, is_dir);
-                                }
-                                crate::commands::PlannedOp::Mkdir { path } => {
-                                    let _ = panel_fs.mkdir(&path);
-                                }
-                                crate::commands::PlannedOp::Rename { from, to } => {
-                                    let _ = panel_fs.rename(&from, &to);
-                                }
+                    // 파일 작업을 동기로 실행
+                    for op in ops {
+                        match op {
+                            crate::commands::PlannedOp::Delete { path } => {
+                                let is_dir = std::fs::metadata(&path)
+                                    .map(|m| m.is_dir())
+                                    .unwrap_or(false);
+                                let _ = panel_fs.delete(&path, is_dir);
+                            }
+                            crate::commands::PlannedOp::Move { from, to } => {
+                                let _ = panel_fs.move_entry(&from, &to);
+                            }
+                            crate::commands::PlannedOp::Copy { from, to } => {
+                                let is_dir = std::fs::metadata(&from)
+                                    .map(|m| m.is_dir())
+                                    .unwrap_or(false);
+                                let _ = panel_fs.copy(&from, &to, is_dir);
+                            }
+                            crate::commands::PlannedOp::Mkdir { path } => {
+                                let _ = panel_fs.mkdir(&path);
+                            }
+                            crate::commands::PlannedOp::Rename { from, to } => {
+                                tracing::info!("파일 이름 변경: {} -> {}", from.display(), to);
+                                let _ = panel_fs.rename(&from, &to);
                             }
                         }
-                        let _ = tx.send(Command::Refresh);
-                    });
+                    }
+
+                    // 작업 완료 후 즉시 refresh
+                    let _ = self.left_panel.refresh();
+                    let _ = self.right_panel.refresh();
+                    self.left_panel.clear_selection();
+                    self.right_panel.clear_selection();
+                    tracing::info!("배치 작업 완료 및 패널 새로고침됨");
                 }
                 self.ai_command_state = None;
                 self.mode = AppMode::Normal;
@@ -1018,8 +1143,47 @@ impl App {
             DialogKind::Find => {
                 let query = dialog.input.clone();
                 let root = self.active_panel().path.clone();
-                let results = crate::ops::search::find_files(&root, &query);
-                self.active_panel_mut().set_find_results(results);
+                
+                // 자연어 검색인지 판단 (날짜 관련 키워드나 긴 문장 등)
+                let is_natural = query.len() > 10 || 
+                    query.contains("전") || query.contains("후") || query.contains("주") || 
+                    query.contains("달") || query.contains("크기") || query.contains("보다");
+
+                if is_natural {
+                    // AI 스마트 검색 수행
+                    self.ai_state = Some(crate::ai::AiState::loading(format!("🔍 스마트 검색 해석 중: \"{}\"", query)));
+                    self.mode = AppMode::AiChat;
+
+                    let tx = self.tx.clone();
+                    tokio::spawn(async move {
+                        let client = crate::ai::AiClient::new(
+                            "http://localhost:8080/v1".to_string(),
+                            "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                        );
+
+                        match client.interpret_search_query(&query).await {
+                            Ok(ai_response) => {
+                                // JSON 파싱
+                                match serde_json::from_str::<crate::ops::search::SearchCriteria>(&ai_response.result) {
+                                    Ok(criteria) => {
+                                        let results = crate::ops::search::find_files_with_criteria(&root, &criteria);
+                                        let _ = tx.send(Command::SearchConfirmResults(results));
+                                    }
+                                    Err(e) => {
+                                        let _ = tx.send(Command::AiError(format!("검색 조건 해석 실패: {}", e)));
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                let _ = tx.send(Command::AiError(e.to_string()));
+                            }
+                        }
+                    });
+                } else {
+                    // 일반 검색 수행
+                    let results = crate::ops::search::find_files(&root, &query);
+                    self.active_panel_mut().set_find_results(results);
+                }
             }
             DialogKind::Copy => {
                 let dst_dir = PathBuf::from(&dialog.input);
@@ -1037,6 +1201,7 @@ impl App {
                     let dst = dst_dir.join(file_name);
                     panel.fs.copy(&src, &dst, true)?;
                 }
+                panel.clear_selection();
             }
             DialogKind::Move => {
                 let dst_dir = PathBuf::from(&dialog.input);
@@ -1054,6 +1219,7 @@ impl App {
                     let dst = dst_dir.join(file_name);
                     panel.fs.move_entry(&src, &dst)?;
                 }
+                panel.clear_selection();
             }
             DialogKind::Mkdir => {
                 let dir_name = dialog.input.clone();
@@ -1077,6 +1243,7 @@ impl App {
                         panel.fs.delete(&src, false)?;
                     }
                 }
+                panel.clear_selection();
             }
             DialogKind::Rename => {
                 let new_name = dialog.input.clone();
@@ -1098,6 +1265,55 @@ impl App {
                 }
 
                 crate::ops::archive::pack_files(&srcs, &dst_path)?;
+                panel.clear_selection();
+            }
+            DialogKind::AddNote => {
+                let memo = dialog.input.clone();
+                if let Some(entry) = self.active_panel().get_current_entry() {
+                    let path = entry.path.to_string_lossy().to_string();
+                    // 태그 추출 (#태그 형식 찾기)
+                    let tags = memo.split_whitespace()
+                        .filter(|w| w.starts_with('#'))
+                        .map(|w| w.trim_start_matches('#').to_string())
+                        .collect();
+                    self.notes.set_note(path, memo, tags);
+                    let _ = self.notes.save();
+                }
+            }
+            DialogKind::GenerateScript => {
+                let instruction = dialog.input.clone();
+                let panel = self.active_panel();
+                let mut files: Vec<_> = panel.get_selected_entries().iter().map(|e| e.path.clone()).collect();
+                if files.is_empty() {
+                    if let Some(entry) = panel.get_current_entry() {
+                        files.push(entry.path.clone());
+                    }
+                }
+                
+                let file_listing = files.iter()
+                    .map(|p| format!("{}", p.display()))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+
+                self.ai_state = Some(crate::ai::AiState::loading(format!("📜 스크립트 생성 중: \"{}\"", instruction)));
+                self.mode = AppMode::AiChat;
+
+                let tx = self.tx.clone();
+                tokio::spawn(async move {
+                    let client = crate::ai::AiClient::new(
+                        "http://localhost:8080/v1".to_string(),
+                        "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                    );
+
+                    match client.generate_batch_script(&file_listing, &instruction).await {
+                        Ok(ai_response) => {
+                            let _ = tx.send(Command::AiResponse(ai_response));
+                        }
+                        Err(e) => {
+                            let _ = tx.send(Command::AiError(e.to_string()));
+                        }
+                    }
+                });
             }
         }
         Ok(())

@@ -22,6 +22,7 @@ impl AiResponse {
         }
     }
 
+    #[allow(dead_code)]
     pub fn error(content: String) -> Self {
         Self {
             thinking: None,

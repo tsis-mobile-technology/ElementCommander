@@ -6,6 +6,8 @@ pub mod dialog;
 pub mod viewer;
 pub mod ai;
 pub mod ai_command;
+pub mod theme;
+pub mod help;
 
 use crate::app::{App, AppMode};
 use ratatui::prelude::*;
@@ -34,6 +36,11 @@ pub fn render(frame: &mut Frame, app: &App) {
             ai_command::render_ai_command_confirm(frame, command_state);
             return;
         }
+    }
+
+    if matches!(app.mode, AppMode::Help) {
+        help::render_help(frame, &app.theme);
+        return;
     }
 
     // Determine if search bar should be shown
@@ -68,8 +75,8 @@ pub fn render(frame: &mut Frame, app: &App) {
         .split(chunks[1]);
 
     // Render panels
-    panel::render_panel(frame, panel_chunks[0], &app.left_panel, app.active_panel);
-    panel::render_panel(frame, panel_chunks[1], &app.right_panel, !app.active_panel);
+    panel::render_panel(frame, panel_chunks[0], &app.left_panel, app.active_panel, &app.theme, &app.notes);
+    panel::render_panel(frame, panel_chunks[1], &app.right_panel, !app.active_panel, &app.theme, &app.notes);
 
     let mut next_chunk_idx = 2;
 
@@ -80,11 +87,11 @@ pub fn render(frame: &mut Frame, app: &App) {
     }
 
     // Command bar
-    cmdbar::render_cmdbar(frame, chunks[next_chunk_idx]);
+    cmdbar::render_cmdbar(frame, chunks[next_chunk_idx], &app.theme);
     next_chunk_idx += 1;
 
     // Status bar
-    statusbar::render_statusbar(frame, chunks[next_chunk_idx], &app.left_panel, &app.right_panel);
+    statusbar::render_statusbar(frame, chunks[next_chunk_idx], &app.left_panel, &app.right_panel, &app.theme);
 
     // Dialog overlay (rendered last, on top)
     if let Some(dialog) = &app.dialog {

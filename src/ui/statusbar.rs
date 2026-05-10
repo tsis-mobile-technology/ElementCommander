@@ -1,8 +1,9 @@
 use crate::panel::PanelState;
 use crate::fs::FileEntry;
+use super::theme::Theme;
 use ratatui::prelude::*;
 
-pub fn render_statusbar(frame: &mut Frame, area: Rect, left: &PanelState, right: &PanelState) {
+pub fn render_statusbar(frame: &mut Frame, area: Rect, left: &PanelState, right: &PanelState, theme: &Theme) {
     let left_size_str = match left.recursive_total_size {
         Some(s) => format!("Total: {}", FileEntry::format_size(s)),
         None => if left.is_calculating {
@@ -45,8 +46,8 @@ pub fn render_statusbar(frame: &mut Frame, area: Rect, left: &PanelState, right:
     let right_padded = format!("{:>width$}", right_info, width = right_width);
 
     let statusbar = Line::from(vec![
-        Span::styled(left_padded, Style::default().bg(Color::DarkGray)),
-        Span::styled(right_padded, Style::default().bg(Color::DarkGray)),
+        Span::styled(left_padded, Style::default().bg(theme.statusbar_bg)),
+        Span::styled(right_padded, Style::default().bg(theme.statusbar_bg)),
     ]);
 
     frame.render_widget(statusbar, area);
