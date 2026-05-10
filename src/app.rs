@@ -1024,6 +1024,12 @@ fn parse_planned_ops(json_str: &str) -> Result<Vec<crate::commands::PlannedOp>> 
     use std::path::PathBuf;
 
     let trimmed = json_str.trim();
+    tracing::debug!("JSON 파싱 입력 ({}글자): {}", trimmed.len(), trimmed);
+
+    if trimmed.is_empty() {
+        return Err(anyhow::anyhow!("AI 응답이 비어있습니다. 서버가 응답을 반환하지 않았을 수 있습니다."));
+    }
+
     let operations: Vec<serde_json::Value> = serde_json::from_str(trimmed)
         .map_err(|e| anyhow::anyhow!("JSON 파싱 실패: {}", e))?;
 

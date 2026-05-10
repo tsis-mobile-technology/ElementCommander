@@ -96,7 +96,7 @@ impl AiClient {
         file_listing: &str,
     ) -> Result<crate::ai::AiResponse> {
         let prompt = format!(
-            "당신은 파일 관리 AI 어시스턴트입니다.\n\n현재 디렉토리: {}\n\n현재 폴더의 파일/폴더 목록:\n{}\n\n사용자 요청: {}\n\n위 요청을 파일 작업으로 해석하고 ONLY JSON 배열로 응답해줘. 다른 설명은 절대 추가하지 마.\n\n JSON 형식 (다른 텍스트는 절대 포함 금지):\n[\n  {{\"op\": \"delete\", \"path\": \"/절대경로/파일\"}},\n  {{\"op\": \"move\", \"from\": \"/절대경로/src\", \"to\": \"/절대경로/dst\"}},\n  {{\"op\": \"copy\", \"from\": \"/절대경로/src\", \"to\": \"/절대경로/dst\"}},\n  {{\"op\": \"mkdir\", \"path\": \"/절대경로/폴더\"}},\n  {{\"op\": \"rename\", \"from\": \"/절대경로/파일\", \"to\": \"새이름\"}}\n]\n\n주의:\n- 모든 경로는 절대경로로 표현\n- 경로는 {} 디렉토리 내에만 있어야 함\n- 존재하지 않는 파일은 포함하지 마\n- JSON 배열만 반환 (다른 텍스트 금지)",
+            "You are a file manager. Return ONLY a JSON array. No other text.\n\nCurrent directory: {}\n\nFiles in this directory:\n{}\n\nUser request: {}\n\nRespond ONLY with this JSON format (no explanations, no markdown, just the array):\n[\n  {{\"op\": \"delete\", \"path\": \"/absolute/path/to/file\"}},\n  {{\"op\": \"move\", \"from\": \"/absolute/path/from\", \"to\": \"/absolute/path/to\"}},\n  {{\"op\": \"copy\", \"from\": \"/absolute/path/from\", \"to\": \"/absolute/path/to\"}},\n  {{\"op\": \"mkdir\", \"path\": \"/absolute/path/to/new/directory\"}},\n  {{\"op\": \"rename\", \"from\": \"/absolute/path/to/file\", \"to\": \"newname\"}}\n]\n\nRules:\n1. All paths must be absolute\n2. All paths must be inside {}\n3. Only list files that exist in the directory above\n4. Return empty array [] if no matching files\n5. Return ONLY the JSON array, nothing else",
             current_dir, file_listing, nl_command, current_dir
         );
 
@@ -163,6 +163,7 @@ impl AiClient {
             .map(|s| s.to_string());
 
         tracing::debug!("AI 명령 해석 응답: {} 글자", content.len());
+        tracing::debug!("AI 응답 내용: {}", content);
 
         Ok(crate::ai::AiResponse::new(thinking, content.to_string()))
     }
