@@ -1,5 +1,5 @@
 use ratatui::{
-    layout::{Constraint, Direction, Layout, Rect, Alignment},
+    layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Wrap},
@@ -9,7 +9,7 @@ use ratatui::{
 use crate::ai::AiState;
 
 pub fn render_ai_mode(frame: &mut Frame, ai_state: &AiState) {
-    let area = frame.size();
+    let area = frame.area();
 
     // 상단 타이틀
     let title_height = 1;

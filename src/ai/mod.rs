@@ -4,7 +4,6 @@ pub mod state;
 pub use client::AiClient;
 pub use state::AiState;
 
-use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
