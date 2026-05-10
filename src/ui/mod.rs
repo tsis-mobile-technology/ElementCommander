@@ -5,6 +5,7 @@ mod searchbar;
 pub mod dialog;
 pub mod viewer;
 pub mod ai;
+pub mod ai_command;
 
 use crate::app::{App, AppMode};
 use ratatui::prelude::*;
@@ -24,6 +25,13 @@ pub fn render(frame: &mut Frame, app: &App) {
     if matches!(app.mode, AppMode::AiChat) {
         if let Some(ai_state) = &app.ai_state {
             ai::render_ai_mode(frame, ai_state);
+            return;
+        }
+    }
+
+    if matches!(app.mode, AppMode::AiCommandConfirm) {
+        if let Some(command_state) = &app.ai_command_state {
+            ai_command::render_ai_command_confirm(frame, command_state);
             return;
         }
     }

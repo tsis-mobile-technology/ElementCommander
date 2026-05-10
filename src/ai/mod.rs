@@ -2,7 +2,7 @@ pub mod client;
 pub mod state;
 
 pub use client::AiClient;
-pub use state::AiState;
+pub use state::{AiState, AiCommandState};
 
 use serde::{Deserialize, Serialize};
 

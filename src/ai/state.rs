@@ -1,5 +1,6 @@
 use crate::ui::viewer::LineContent;
 use crate::ai::AiResponse;
+use crate::commands::PlannedOp;
 use ratatui::style::Color;
 use textwrap::wrap;
 
@@ -138,6 +139,27 @@ impl AiState {
         LineContent {
             raw: text.to_string(),
             styled: vec![(Color::Cyan, text.to_string(), true)],  // Cyan + Bold
+        }
+    }
+}
+
+pub struct AiCommandState {
+    pub ops: Vec<PlannedOp>,
+    pub scroll: usize,
+}
+
+impl AiCommandState {
+    pub fn new(ops: Vec<PlannedOp>) -> Self {
+        Self { ops, scroll: 0 }
+    }
+
+    pub fn scroll_up(&mut self) {
+        self.scroll = self.scroll.saturating_sub(1);
+    }
+
+    pub fn scroll_down(&mut self) {
+        if self.scroll < self.ops.len().saturating_sub(1) {
+            self.scroll += 1;
         }
     }
 }

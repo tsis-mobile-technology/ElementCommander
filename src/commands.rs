@@ -1,3 +1,14 @@
+use std::path::PathBuf;
+
+#[derive(Clone, Debug)]
+pub enum PlannedOp {
+    Delete { path: PathBuf },
+    Move { from: PathBuf, to: PathBuf },
+    Copy { from: PathBuf, to: PathBuf },
+    Mkdir { path: PathBuf },
+    Rename { from: PathBuf, to: String },
+}
+
 #[derive(Clone, Debug)]
 #[allow(dead_code)]
 pub enum Command {
@@ -53,5 +64,11 @@ pub enum Command {
     AiPageUp,
     AiPageDown,
     AiToggleThinking,
+    AiNaturalCommand,
+    AiCommandParsed(Vec<PlannedOp>),
+    AiCommandConfirm,
+    AiCommandCancel,
+    AiCommandScrollUp,
+    AiCommandScrollDown,
     None,
 }

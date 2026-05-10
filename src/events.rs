@@ -12,6 +12,7 @@ pub fn handle_event(event: Event) -> Command {
 pub fn handle_key_event(key: KeyEvent) -> Command {
     match key.code {
         KeyCode::Char('q') | KeyCode::Esc => Command::Quit,
+        KeyCode::Char('g') if key.modifiers.contains(KeyModifiers::CONTROL) => Command::AiNaturalCommand,
         KeyCode::Tab => Command::SwitchPanel,
         KeyCode::Up => Command::CursorUp,
         KeyCode::Down => Command::CursorDown,
@@ -134,6 +135,21 @@ pub fn handle_ai_event(event: Event) -> Command {
                 KeyCode::PageDown => Command::AiPageDown,
                 KeyCode::Char('q') => Command::AiCancel,
                 KeyCode::Char('t') | KeyCode::Char('T') => Command::AiToggleThinking,
+                _ => Command::None,
+            }
+        }
+        _ => Command::None,
+    }
+}
+
+pub fn handle_ai_command_confirm_event(event: Event) -> Command {
+    match event {
+        Event::Key(key) => {
+            match key.code {
+                KeyCode::Char('y') | KeyCode::Char('Y') | KeyCode::Enter => Command::AiCommandConfirm,
+                KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => Command::AiCommandCancel,
+                KeyCode::Up => Command::AiCommandScrollUp,
+                KeyCode::Down => Command::AiCommandScrollDown,
                 _ => Command::None,
             }
         }

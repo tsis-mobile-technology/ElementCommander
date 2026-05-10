@@ -10,6 +10,7 @@ pub enum DialogKind {
     Rename,
     Find,
     Pack,
+    AiCommand,
 }
 
 #[derive(Clone, Debug)]
@@ -94,6 +95,16 @@ impl DialogState {
         }
     }
 
+    pub fn new_ai_command() -> Self {
+        DialogState {
+            kind: DialogKind::AiCommand,
+            input: String::new(),
+            cursor: 0,
+            message: "🤖 AI Commander - 파일 작업 명령 입력".to_string(),
+            error: None,
+        }
+    }
+
     pub fn insert_char(&mut self, c: char) {
         if self.cursor <= self.input.len() {
             self.input.insert(self.cursor, c);
@@ -156,6 +167,7 @@ pub fn render_dialog(frame: &mut Frame, area: Rect, dialog: &DialogState) {
         DialogKind::Rename => ("  ✏️  파일명 변경  ", Color::Cyan),
         DialogKind::Find => ("  🔍 파일 찾기  ", Color::Magenta),
         DialogKind::Pack => ("  📦 압축 파일 생성  ", Color::Yellow),
+        DialogKind::AiCommand => ("  🤖 AI 명령 실행  ", Color::Magenta),
         };
 
 
@@ -254,6 +266,7 @@ pub fn render_dialog(frame: &mut Frame, area: Rect, dialog: &DialogState) {
                 DialogKind::Copy | DialogKind::Move => "대상 경로:",
                 DialogKind::Mkdir => "디렉토리 이름:",
                 DialogKind::Rename => "새 이름:",
+                DialogKind::AiCommand => "작업 지시 (예: log 파일 삭제, 사진 images 폴더로 이동):",
                 _ => "",
             };
             frame.render_widget(
