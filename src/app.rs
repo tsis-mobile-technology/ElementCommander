@@ -20,6 +20,7 @@ pub enum AppMode {
     Search,
     Filter,
     Viewer,
+    AiChat,
 }
 
 use tokio::sync::mpsc;
@@ -32,6 +33,7 @@ pub struct App {
     pub mode: AppMode,
     pub dialog: Option<DialogState>,
     pub viewer: Option<ViewerState>,
+    pub ai_state: Option<crate::ai::AiState>,
     pub search_query: String,
     pub config: Config,
     pub should_quit: bool,
@@ -61,6 +63,7 @@ impl App {
             mode: AppMode::Normal,
             dialog: None,
             viewer: None,
+            ai_state: None,
             search_query: String::new(),
             config,
             should_quit: false,
@@ -95,6 +98,7 @@ impl App {
                     AppMode::Dialog => handle_dialog_event(event, &mut self.dialog),
                     AppMode::Search | AppMode::Filter => handle_search_event(event),
                     AppMode::Viewer => self.handle_viewer_event(event),
+                    AppMode::AiChat => crate::events::handle_ai_event(event),
                     _ => handle_event(event),
                 };
                 self.handle_command(command)?;
@@ -416,6 +420,82 @@ impl App {
                             }
                         }
                     }
+                }
+            }
+            Command::AiSummarize => {
+                if let Some(entry) = self.active_panel().get_current_entry() {
+                    if !entry.is_dir {
+                        let path = entry.path.clone();
+                        let file_path = path.display().to_string();
+                        self.ai_state = Some(crate::ai::AiState::loading(file_path.clone()));
+                        self.mode = AppMode::AiChat;
+
+                        let tx = self.tx.clone();
+                        tokio::spawn(async move {
+                            let client = crate::ai::AiClient::new(
+                                "http://localhost:8080/v1".to_string(),
+                                "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                            );
+
+                            match std::fs::read_to_string(&path) {
+                                Ok(content) => {
+                                    if content.len() > 50000 {
+                                        let truncated = format!("{}... (파일이 너무 커서 처음 50KB만 표시)", &content[..50000]);
+                                        match client.summarize_file(truncated, file_path).await {
+                                            Ok(response) => {
+                                                let _ = tx.send(Command::AiResponse(response));
+                                            }
+                                            Err(e) => {
+                                                let _ = tx.send(Command::AiError(e.to_string()));
+                                            }
+                                        }
+                                    } else {
+                                        match client.summarize_file(content, file_path).await {
+                                            Ok(response) => {
+                                                let _ = tx.send(Command::AiResponse(response));
+                                            }
+                                            Err(e) => {
+                                                let _ = tx.send(Command::AiError(e.to_string()));
+                                            }
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    let _ = tx.send(Command::AiError(format!("파일을 읽을 수 없습니다: {}", e)));
+                                }
+                            }
+                        });
+                    }
+                }
+            }
+            Command::AiResponse(text) => {
+                self.ai_state = Some(crate::ai::AiState::new(text));
+            }
+            Command::AiError(err) => {
+                self.ai_state = Some(crate::ai::AiState::error(err));
+            }
+            Command::AiCancel => {
+                self.ai_state = None;
+                self.mode = AppMode::Normal;
+            }
+            Command::AiScrollUp => {
+                if let Some(ai_state) = &mut self.ai_state {
+                    ai_state.scroll_up();
+                }
+            }
+            Command::AiScrollDown => {
+                if let Some(ai_state) = &mut self.ai_state {
+                    ai_state.scroll_down(20);
+                }
+            }
+            Command::AiPageUp => {
+                if let Some(ai_state) = &mut self.ai_state {
+                    ai_state.page_up();
+                }
+            }
+            Command::AiPageDown => {
+                if let Some(ai_state) = &mut self.ai_state {
+                    ai_state.page_down(20);
                 }
             }
             _ => {} // Other commands will be implemented in later phases

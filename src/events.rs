@@ -32,6 +32,7 @@ pub fn handle_key_event(key: KeyEvent) -> Command {
         KeyCode::F(10) => Command::Quit,
         KeyCode::Char('a') if key.modifiers.contains(KeyModifiers::CONTROL) => Command::SelectAll,
         KeyCode::Char('f') if key.modifiers.contains(KeyModifiers::CONTROL) => Command::Find,
+        KeyCode::Char('g') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiSummarize,
         KeyCode::Char('h') if key.modifiers.contains(KeyModifiers::CONTROL) => Command::ToggleHidden,
         KeyCode::Char('l') if key.modifiers.contains(KeyModifiers::CONTROL) => Command::Refresh,
         KeyCode::Char('=') => Command::Filter,
@@ -109,6 +110,23 @@ pub fn handle_search_event(event: Event) -> Command {
                 KeyCode::Down => Command::CursorDown,
                 KeyCode::PageUp => Command::PageUp,
                 KeyCode::PageDown => Command::PageDown,
+                _ => Command::None,
+            }
+        }
+        _ => Command::None,
+    }
+}
+
+pub fn handle_ai_event(event: Event) -> Command {
+    match event {
+        Event::Key(key) => {
+            match key.code {
+                KeyCode::Esc => Command::AiCancel,
+                KeyCode::Up => Command::AiScrollUp,
+                KeyCode::Down => Command::AiScrollDown,
+                KeyCode::PageUp => Command::AiPageUp,
+                KeyCode::PageDown => Command::AiPageDown,
+                KeyCode::Char('q') => Command::AiCancel,
                 _ => Command::None,
             }
         }
