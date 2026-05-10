@@ -26,14 +26,17 @@ pub fn render_ai_command_confirm(frame: &mut Frame, ai_command_state: &AiCommand
     // 제목
     let title_block = Block::default()
         .borders(Borders::TOP | Borders::BOTTOM)
-        .border_style(Style::default().fg(Color::Cyan).bold())
-        .title("🤖 AI Commander - 실행 예정 작업 목록")
+        .border_style(Style::default().fg(Color::Green).bold())
+        .title("✅ 명령 해석 완료 - 실행할 작업 목록")
         .title_alignment(Alignment::Center);
     frame.render_widget(title_block, chunks[0]);
 
     let title_inner = chunks[0];
-    let title_text = Paragraph::new("작업을 검토하고 [Y] 실행 또는 [N] 취소")
-        .style(Style::default().fg(Color::Yellow))
+    let title_text = Paragraph::new(format!(
+        "다음 {} 개의 작업이 실행될 예정입니다. 검토 후 [Y] 실행 또는 [N] 취소",
+        ai_command_state.ops.len()
+    ))
+        .style(Style::default().fg(Color::Green).bold())
         .alignment(Alignment::Center);
     frame.render_widget(title_text, title_inner);
 
@@ -86,19 +89,18 @@ pub fn render_ai_command_confirm(frame: &mut Frame, ai_command_state: &AiCommand
 
     // 상태바
     let status_text = format!(
-        "[Y] 실행  [N] 취소  [↑↓] 스크롤  총 {} 개 작업  선택: {} / {}",
-        ai_command_state.ops.len(),
+        "🔍 [Y] 실행  [N] 취소  [↑↓] 스크롤  ({}/{} 작업)",
         ai_command_state.scroll + 1,
         ai_command_state.ops.len()
     );
 
     let status = Paragraph::new(status_text)
-        .style(Style::default().fg(Color::Yellow).bold())
+        .style(Style::default().fg(Color::Cyan).bold())
         .alignment(Alignment::Center)
         .block(
             Block::default()
                 .borders(Borders::TOP)
-                .border_style(Style::default().fg(Color::DarkGray)),
+                .border_style(Style::default().fg(Color::Green)),
         );
 
     frame.render_widget(status, chunks[2]);

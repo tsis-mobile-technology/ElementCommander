@@ -873,7 +873,7 @@ impl App {
                     .join("\n");
 
                 // AI 로딩 상태 표시
-                self.ai_state = Some(crate::ai::AiState::loading(format!("명령 해석: {}", nl_command)));
+                self.ai_state = Some(crate::ai::AiState::loading(format!("🔄 명령 해석 중: \"{}\"", nl_command)));
                 self.mode = AppMode::AiChat;
 
                 let tx = self.tx.clone();
@@ -888,15 +888,27 @@ impl App {
                             // JSON 파싱 시도
                             match parse_planned_ops(&ai_response.result) {
                                 Ok(ops) => {
-                                    let _ = tx.send(Command::AiCommandParsed(ops));
+                                    if ops.is_empty() {
+                                        let _ = tx.send(Command::AiError(
+                                            "❌ 명령 해석 실패: AI가 실행할 작업을 찾을 수 없습니다.\n\n현재 폴더의 파일을 확인하고 다시 시도해주세요.".to_string()
+                                        ));
+                                    } else {
+                                        let _ = tx.send(Command::AiCommandParsed(ops));
+                                    }
                                 }
                                 Err(e) => {
-                                    let _ = tx.send(Command::AiError(format!("파싱 오류: {}", e)));
+                                    let _ = tx.send(Command::AiError(format!(
+                                        "❌ 명령 해석 실패\n\nAI가 올바른 작업 목록을 생성하지 못했습니다.\n오류: {}",
+                                        e
+                                    )));
                                 }
                             }
                         }
                         Err(e) => {
-                            let _ = tx.send(Command::AiError(e.to_string()));
+                            let _ = tx.send(Command::AiError(format!(
+                                "❌ AI 요청 실패\n\n{}",
+                                e
+                            )));
                         }
                     }
                 });
