@@ -542,7 +542,7 @@ impl App {
                                             metadata.len(),
                                             metadata.modified()
                                         );
-                                        match client.analyze_folder(file_info, file_path).await {
+                                        match client.analyze_image(file_info, file_path).await {
                                             Ok(ai_response) => {
                                                 let _ = tx.send(Command::AiResponse(ai_response));
                                             }
