@@ -108,26 +108,32 @@ impl DialogState {
     pub fn insert_char(&mut self, c: char) {
         if self.cursor <= self.input.len() {
             self.input.insert(self.cursor, c);
-            self.cursor += 1;
+            self.cursor += c.len_utf8();
         }
     }
 
     pub fn backspace(&mut self) {
         if self.cursor > 0 {
-            self.input.remove(self.cursor - 1);
-            self.cursor -= 1;
+            // 커서 위치 앞의 문자를 찾아서 제거
+            let ch = self.input[..self.cursor].chars().last().unwrap();
+            self.cursor -= ch.len_utf8();
+            self.input.remove(self.cursor);
         }
     }
 
     pub fn cursor_left(&mut self) {
         if self.cursor > 0 {
-            self.cursor -= 1;
+            // 한 문자 뒤로 이동
+            let ch = self.input[..self.cursor].chars().last().unwrap();
+            self.cursor -= ch.len_utf8();
         }
     }
 
     pub fn cursor_right(&mut self) {
         if self.cursor < self.input.len() {
-            self.cursor += 1;
+            // 한 문자 앞으로 이동
+            let ch = self.input[self.cursor..].chars().next().unwrap();
+            self.cursor += ch.len_utf8();
         }
     }
 
