@@ -8,6 +8,7 @@ A Total Commander-style dual-pane TUI file manager written in Rust.
 - **Keyboard-centric**: Fast navigation without mouse dependency
 - **Multi-select**: Select multiple files for batch operations
 - **Archive support**: Navigate and extract ZIP/TAR files
+- **AI Commander**: File summarization & analysis with local LLM (llama.cpp)
 - **Cross-platform**: Linux, macOS, Windows (terminal support required)
 
 ## Status
@@ -68,6 +69,14 @@ cargo build --release
 | `=` | Wildcard filter |
 | Ctrl+F | Find files (recursive) |
 
+### AI Commander
+| Key | Action |
+|-----|--------|
+| Alt+G | Summarize current file with AI |
+| ↑↓ | Scroll AI response (in AI mode) |
+| PgUp/PgDn | Page up/down AI response |
+| Esc / q | Close AI response |
+
 ### System
 | Key | Action |
 |-----|--------|
@@ -89,6 +98,23 @@ See [CLAUDE.md](CLAUDE.md) for detailed architecture and development guide.
 
 - Rust 1.70+
 - Terminal with 24-bit color support (recommended)
+
+### AI Commander Requirements
+
+To use the AI Commander feature:
+- [llama.cpp](https://github.com/ggerganov/llama.cpp) running locally on port 8080
+- A compatible GGUF model (tested with Qwen 35B)
+
+#### Setup llama.cpp
+
+```bash
+# Start llama.cpp server (example with Qwen model)
+./llama-server -m models/Qwen_Qwen3.6-35B-A3B-Q4_0.gguf \
+  --port 8080 \
+  --ctx-size 2048
+```
+
+The AI Commander will connect to `http://localhost:8080/v1/chat/completions`
 
 ## License
 
