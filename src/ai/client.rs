@@ -175,8 +175,8 @@ impl AiClient {
         file_list: &str,
     ) -> Result<crate::ai::AiResponse> {
         let prompt = format!(
-            "You are a batch file renaming assistant. Return ONLY a JSON array.\n\nCurrent directory: {}\n\nSelected files to rename:\n{}\n\nRenaming pattern: {}\n\nRespond ONLY with this JSON format (no explanations, no markdown, just the array):\n[\n  {{\"op\": \"rename\", \"from\": \"/absolute/path/to/original_name\", \"to\": \"new_name\"}}\n]\n\nRules:\n1. All paths must be absolute (in {})\n2. Only list files that exist in the list above\n3. New names should not include path, only filename\n4. Return empty array [] if no renaming needed\n5. Return ONLY the JSON array, nothing else",
-            current_dir, file_list, pattern, current_dir
+            "You are a file renaming assistant. Generate new filenames based on the pattern.\n\nCurrent directory: {}\n\nFiles to rename:\n{}\n\nRenaming instruction: {}\n\nGenerate a JSON array with rename operations. Each operation has:\n- \"from\": full absolute path to current file\n- \"to\": new filename (just the name, no path)\n\nExample output:\n[\n  {{\"op\": \"rename\", \"from\": \"{}/file1.txt\", \"to\": \"prefix_file1.txt\"}},\n  {{\"op\": \"rename\", \"from\": \"{}/file2.txt\", \"to\": \"prefix_file2.txt\"}}\n]\n\nImportant:\n- Process ALL files from the list above\n- Apply the instruction to each file\n- Use absolute paths for 'from' values\n- Output ONLY valid JSON array (can be in code block)\n- If you cannot apply the pattern, return []",
+            current_dir, file_list, pattern, current_dir, current_dir
         );
 
         let url = format!("{}/chat/completions", self.base_url);

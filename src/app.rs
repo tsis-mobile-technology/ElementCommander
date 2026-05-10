@@ -961,9 +961,11 @@ impl App {
                 }
 
                 let file_listing = files.iter()
-                    .map(|p| format!("{}", p.file_name().unwrap_or_default().to_string_lossy()))
+                    .map(|p| format!("{}", p.display()))
                     .collect::<Vec<_>>()
                     .join("\n");
+                tracing::debug!("배치 리네이밍 파일 목록:\n{}", file_listing);
+                tracing::debug!("배치 리네이밍 패턴: {}", pattern);
 
                 // AI 로딩 상태 표시
                 self.ai_state = Some(crate::ai::AiState::loading(format!("🔄 이름 변경 패턴 분석 중: \"{}\"", pattern)));
