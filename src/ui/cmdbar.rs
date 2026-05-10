@@ -33,7 +33,7 @@ pub fn render_cmdbar(frame: &mut Frame, area: Rect) {
         Span::raw(":Diff  "),
         Span::styled("A-A", Style::default().fg(Color::Cyan).bold()),
         Span::raw(":Fold  "),
-        Span::styled("A-F2", Style::default().fg(Color::Cyan).bold()),
+        Span::styled("A-B", Style::default().fg(Color::Cyan).bold()),
         Span::raw(":BRen "),
     ])
     .style(Style::default().bg(Color::Blue).fg(Color::White));
