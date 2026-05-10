@@ -11,6 +11,7 @@ pub enum DialogKind {
     Find,
     Pack,
     AiCommand,
+    BatchRename,
 }
 
 #[derive(Clone, Debug)]
@@ -95,6 +96,16 @@ impl DialogState {
         }
     }
 
+    pub fn new_batch_rename(selected_count: usize) -> Self {
+        DialogState {
+            kind: DialogKind::BatchRename,
+            input: String::new(),
+            cursor: 0,
+            message: format!("✏️  {} 개 파일 배치 리네이밍", selected_count),
+            error: None,
+        }
+    }
+
     pub fn new_ai_command() -> Self {
         DialogState {
             kind: DialogKind::AiCommand,
@@ -174,6 +185,7 @@ pub fn render_dialog(frame: &mut Frame, area: Rect, dialog: &DialogState) {
         DialogKind::Find => ("  🔍 파일 찾기  ", Color::Magenta),
         DialogKind::Pack => ("  📦 압축 파일 생성  ", Color::Yellow),
         DialogKind::AiCommand => ("  🤖 AI 명령 실행  ", Color::Magenta),
+        DialogKind::BatchRename => ("  ✏️  배치 리네이밍  ", Color::Cyan),
         };
 
 
@@ -273,6 +285,7 @@ pub fn render_dialog(frame: &mut Frame, area: Rect, dialog: &DialogState) {
                 DialogKind::Mkdir => "디렉토리 이름:",
                 DialogKind::Rename => "새 이름:",
                 DialogKind::AiCommand => "작업 지시 (예: log 파일 삭제, 사진 images 폴더로 이동):",
+                DialogKind::BatchRename => "이름 변경 패턴 (예: 날짜순 정렬, 접두사 추가):",
                 _ => "",
             };
             frame.render_widget(

@@ -303,6 +303,24 @@ impl App {
                 self.dialog = Some(DialogState::new_rename(current_name));
                 self.mode = AppMode::Dialog;
             }
+            Command::BatchRename => {
+                let panel = self.active_panel();
+                let mut files: Vec<_> = panel.get_selected_entries()
+                    .iter()
+                    .map(|e| e.path.clone())
+                    .collect();
+                if files.is_empty() {
+                    if let Some(entry) = panel.get_current_entry() {
+                        files.push(entry.path.clone());
+                    }
+                }
+                if files.is_empty() {
+                    return Ok(());
+                }
+                let selected_count = files.len();
+                self.dialog = Some(crate::ui::dialog::DialogState::new_batch_rename(selected_count));
+                self.mode = AppMode::Dialog;
+            }
             Command::View => {
                 if let Some(entry) = self.active_panel().get_current_entry() {
                     if !entry.is_dir {
@@ -333,15 +351,15 @@ impl App {
                 }
             }
             Command::ConfirmDialog => {
-                let is_ai_command = self.dialog.as_ref()
-                    .map(|d| matches!(d.kind, crate::ui::dialog::DialogKind::AiCommand))
+                let is_async_dialog = self.dialog.as_ref()
+                    .map(|d| matches!(d.kind, crate::ui::dialog::DialogKind::AiCommand | crate::ui::dialog::DialogKind::BatchRename))
                     .unwrap_or(false);
 
                 self.execute_dialog_operation()?;
 
-                // AiCommand는 execute_dialog_operation 내에서 mode를 이미 AiChat으로 설정했으므로
+                // AiCommand와 BatchRename은 execute_dialog_operation 내에서 mode를 이미 AiChat으로 설정했으므로
                 // 여기서 mode를 Normal로 변경하면 안 됨
-                if !is_ai_command {
+                if !is_async_dialog {
                     self.dialog = None;
                     self.mode = AppMode::Normal;
                     self.left_panel.refresh()?;
@@ -908,6 +926,71 @@ impl App {
                                 Err(e) => {
                                     let _ = tx.send(Command::AiError(format!(
                                         "❌ 명령 해석 실패\n\nAI가 올바른 작업 목록을 생성하지 못했습니다.\n오류: {}",
+                                        e
+                                    )));
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            let _ = tx.send(Command::AiError(format!(
+                                "❌ AI 요청 실패\n\n{}",
+                                e
+                            )));
+                        }
+                    }
+                });
+                return Ok(());
+            }
+            DialogKind::BatchRename => {
+                let pattern = dialog.input.clone();
+                let current_dir = self.active_panel().path.display().to_string();
+                let panel = self.active_panel();
+
+                // 선택된 파일 목록 생성
+                let mut files: Vec<_> = panel.get_selected_entries()
+                    .iter()
+                    .map(|e| e.path.clone())
+                    .collect();
+                if files.is_empty() {
+                    if let Some(entry) = panel.get_current_entry() {
+                        files.push(entry.path.clone());
+                    }
+                }
+                if files.is_empty() {
+                    return Ok(());
+                }
+
+                let file_listing = files.iter()
+                    .map(|p| format!("{}", p.file_name().unwrap_or_default().to_string_lossy()))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+
+                // AI 로딩 상태 표시
+                self.ai_state = Some(crate::ai::AiState::loading(format!("🔄 이름 변경 패턴 분석 중: \"{}\"", pattern)));
+                self.mode = AppMode::AiChat;
+
+                let tx = self.tx.clone();
+                tokio::spawn(async move {
+                    let client = crate::ai::AiClient::new(
+                        "http://localhost:8080/v1".to_string(),
+                        "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                    );
+
+                    match client.batch_rename(&pattern, &current_dir, &file_listing).await {
+                        Ok(ai_response) => {
+                            match parse_planned_ops(&ai_response.result) {
+                                Ok(ops) => {
+                                    if ops.is_empty() {
+                                        let _ = tx.send(Command::AiError(
+                                            "❌ 이름 변경 실패: 변경할 파일을 찾지 못했습니다.\n\n패턴을 다시 입력하고 시도해주세요.".to_string()
+                                        ));
+                                    } else {
+                                        let _ = tx.send(Command::AiCommandParsed(ops));
+                                    }
+                                }
+                                Err(e) => {
+                                    let _ = tx.send(Command::AiError(format!(
+                                        "❌ 이름 변경 실패\n\nAI가 올바른 파일명 목록을 생성하지 못했습니다.\n오류: {}",
                                         e
                                     )));
                                 }

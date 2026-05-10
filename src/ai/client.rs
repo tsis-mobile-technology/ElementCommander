@@ -168,6 +168,85 @@ impl AiClient {
         Ok(crate::ai::AiResponse::new(thinking, content.to_string()))
     }
 
+    pub async fn batch_rename(
+        &self,
+        pattern: &str,
+        current_dir: &str,
+        file_list: &str,
+    ) -> Result<crate::ai::AiResponse> {
+        let prompt = format!(
+            "You are a batch file renaming assistant. Return ONLY a JSON array.\n\nCurrent directory: {}\n\nSelected files to rename:\n{}\n\nRenaming pattern: {}\n\nRespond ONLY with this JSON format (no explanations, no markdown, just the array):\n[\n  {{\"op\": \"rename\", \"from\": \"/absolute/path/to/original_name\", \"to\": \"new_name\"}}\n]\n\nRules:\n1. All paths must be absolute (in {})\n2. Only list files that exist in the list above\n3. New names should not include path, only filename\n4. Return empty array [] if no renaming needed\n5. Return ONLY the JSON array, nothing else",
+            current_dir, file_list, pattern, current_dir
+        );
+
+        let url = format!("{}/chat/completions", self.base_url);
+
+        let body = json!({
+            "model": self.model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "temperature": 0.3,
+            "top_p": 0.9,
+            "max_tokens": 1024,
+        });
+
+        let response = self
+            .client
+            .post(&url)
+            .json(&body)
+            .timeout(std::time::Duration::from_secs(30))
+            .send()
+            .await
+            .map_err(|e| {
+                tracing::error!("AI API 요청 실패: {}", e);
+                anyhow!("AI API 요청 실패: {}", e)
+            })?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            tracing::error!("AI API 오류: {} - {}", status, error_text);
+            return Err(anyhow!("AI API 오류 ({}): {}", status, error_text));
+        }
+
+        let data: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|e| {
+                tracing::error!("응답 파싱 실패: {}", e);
+                anyhow!("응답 파싱 실패: {}", e)
+            })?;
+
+        let choice = data
+            .get("choices")
+            .and_then(|c| c.get(0))
+            .ok_or_else(|| anyhow!("응답에 내용이 없습니다"))?;
+
+        let content = choice
+            .get("message")
+            .and_then(|m| m.get("content"))
+            .and_then(|c| c.as_str())
+            .unwrap_or("");
+
+        let thinking = choice
+            .get("message")
+            .and_then(|m| m.get("reasoning_content"))
+            .and_then(|c| c.as_str())
+            .map(|s| s.to_string());
+
+        tracing::debug!("AI 배치 리네이밍 응답: {} 글자", content.len());
+        tracing::debug!("AI 응답 내용: {}", content);
+
+        Ok(crate::ai::AiResponse::new(thinking, content.to_string()))
+    }
+
     pub async fn query(&self, prompt: &str) -> Result<crate::ai::AiResponse> {
         let url = format!("{}/chat/completions", self.base_url);
 

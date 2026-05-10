@@ -65,6 +65,7 @@ pub enum Command {
     AiPageDown,
     AiToggleThinking,
     AiNaturalCommand,
+    BatchRename,
     AiCommandParsed(Vec<PlannedOp>),
     AiCommandConfirm,
     AiCommandCancel,

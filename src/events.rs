@@ -21,6 +21,7 @@ pub fn handle_key_event(key: KeyEvent) -> Command {
         KeyCode::Enter => Command::Navigate,
         KeyCode::Backspace => Command::GoParent,
         KeyCode::Insert => Command::ToggleSelect,
+        KeyCode::F(2) if key.modifiers.contains(KeyModifiers::ALT) => Command::BatchRename,
         KeyCode::F(2) if key.modifiers.contains(KeyModifiers::SHIFT) => Command::Rename,
         KeyCode::F(2) => Command::Rename,
         KeyCode::F(3) => Command::View,
