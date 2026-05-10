@@ -980,6 +980,7 @@ impl App {
 
                     match client.batch_rename(&pattern, &current_dir, &file_listing).await {
                         Ok(ai_response) => {
+                            tracing::debug!("배치 리네이밍 AI 응답 ({}글자): {}", ai_response.result.len(), ai_response.result);
                             match parse_planned_ops(&ai_response.result) {
                                 Ok(ops) => {
                                     if ops.is_empty() {
@@ -991,10 +992,16 @@ impl App {
                                     }
                                 }
                                 Err(e) => {
+                                    let response_preview = if ai_response.result.len() > 100 {
+                                        format!("{}...", &ai_response.result[..100])
+                                    } else {
+                                        ai_response.result.clone()
+                                    };
                                     let _ = tx.send(Command::AiError(format!(
-                                        "❌ 이름 변경 실패\n\nAI가 올바른 파일명 목록을 생성하지 못했습니다.\n오류: {}",
-                                        e
+                                        "❌ 이름 변경 실패\n\nAI 응답 파싱 오류:\n{}\n\nAI 응답: {}",
+                                        e, response_preview
                                     )));
+                                    tracing::error!("배치 리네이밍 파싱 오류: {}\n전체 응답: {}", e, ai_response.result);
                                 }
                             }
                         }

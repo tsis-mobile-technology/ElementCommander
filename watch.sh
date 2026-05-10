@@ -13,10 +13,12 @@ echo ""
 . "$HOME/.cargo/env"
 
 # 옵션 1: Debug 모드로 실행 (개발 중 권장)
-cargo watch -x run
+RUST_LOG=debug cargo watch -x run
 
 # 옵션 2: Release 모드로 실행 (성능 테스트)
 # cargo watch -x "build --release" -x "run --release"
 
 # 옵션 3: 특정 파일만 감시
 # cargo watch --watch src/ui/panel.rs -x run
+
+exit 0;

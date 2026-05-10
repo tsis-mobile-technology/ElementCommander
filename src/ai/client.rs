@@ -175,8 +175,8 @@ impl AiClient {
         file_list: &str,
     ) -> Result<crate::ai::AiResponse> {
         let prompt = format!(
-            "You are a file renaming assistant. Generate new filenames based on the pattern.\n\nCurrent directory: {}\n\nFiles to rename:\n{}\n\nRenaming instruction: {}\n\nGenerate a JSON array with rename operations. Each operation has:\n- \"from\": full absolute path to current file\n- \"to\": new filename (just the name, no path)\n\nExample output:\n[\n  {{\"op\": \"rename\", \"from\": \"{}/file1.txt\", \"to\": \"prefix_file1.txt\"}},\n  {{\"op\": \"rename\", \"from\": \"{}/file2.txt\", \"to\": \"prefix_file2.txt\"}}\n]\n\nImportant:\n- Process ALL files from the list above\n- Apply the instruction to each file\n- Use absolute paths for 'from' values\n- Output ONLY valid JSON array (can be in code block)\n- If you cannot apply the pattern, return []",
-            current_dir, file_list, pattern, current_dir, current_dir
+            "You are a file manager. Return ONLY a JSON array. No other text.\n\nCurrent directory: {}\n\nFiles in this directory:\n{}\n\nUser request: Apply this rename pattern to ALL files above: {}\n\nRespond ONLY with this JSON format (no explanations, no markdown, just the array):\n[\n  {{\"op\": \"rename\", \"from\": \"/absolute/path/to/file.ext\", \"to\": \"new_name.ext\"}}\n]\n\nRules:\n1. All paths must be absolute (start with /)\n2. All paths must be inside {}\n3. Only list files that exist in the directory above\n4. 'to' is ONLY the new filename, no path\n5. Process EVERY file in the list\n6. Return ONLY the JSON array, nothing else",
+            current_dir, file_list, pattern, current_dir
         );
 
         let url = format!("{}/chat/completions", self.base_url);
