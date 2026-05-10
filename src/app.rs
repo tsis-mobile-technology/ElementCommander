@@ -1030,7 +1030,32 @@ fn parse_planned_ops(json_str: &str) -> Result<Vec<crate::commands::PlannedOp>> 
         return Err(anyhow::anyhow!("AI 응답이 비어있습니다. 서버가 응답을 반환하지 않았을 수 있습니다."));
     }
 
-    let operations: Vec<serde_json::Value> = serde_json::from_str(trimmed)
+    // JSON이 마크다운 코드블록에 감싸져 있을 수 있으므로 추출
+    let json_text = if trimmed.starts_with("```") {
+        let lines: Vec<&str> = trimmed.lines().collect();
+        let start = lines.iter().position(|l| l.starts_with("```") && l.contains("json"))
+            .map(|i| i + 1)
+            .unwrap_or(0);
+        let end = lines.iter().rposition(|l| l.starts_with("```"))
+            .unwrap_or(lines.len());
+        lines[start..end].join("\n")
+    } else {
+        // JSON 배열을 찾기 (앞에 설명이 있을 수 있음)
+        if let Some(start) = trimmed.find('[') {
+            if let Some(end) = trimmed.rfind(']') {
+                trimmed[start..=end].to_string()
+            } else {
+                trimmed.to_string()
+            }
+        } else {
+            trimmed.to_string()
+        }
+    };
+
+    let final_json = json_text.trim();
+    tracing::debug!("정제된 JSON: {}", final_json);
+
+    let operations: Vec<serde_json::Value> = serde_json::from_str(final_json)
         .map_err(|e| anyhow::anyhow!("JSON 파싱 실패: {}", e))?;
 
     let mut ops = Vec::new();
