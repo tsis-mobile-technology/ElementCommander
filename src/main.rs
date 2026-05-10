@@ -18,6 +18,20 @@ use std::io;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Setup logging
+    let log_file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("/tmp/hermes_tail.log")
+        .unwrap_or_else(|_| std::fs::File::create("/tmp/hermes_tail.log").unwrap());
+
+    tracing_subscriber::fmt()
+        .with_writer(log_file)
+        .with_max_level(tracing::Level::DEBUG)
+        .init();
+
+    tracing::info!("=== hermes_tail 시작 ===");
+
     // Setup terminal
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -32,6 +46,8 @@ async fn main() -> Result<()> {
     // Cleanup terminal
     disable_raw_mode()?;
     execute!(io::stdout(), LeaveAlternateScreen)?;
+
+    tracing::info!("=== hermes_tail 종료 ===");
 
     result
 }

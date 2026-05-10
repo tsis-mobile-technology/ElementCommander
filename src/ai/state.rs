@@ -1,4 +1,5 @@
 use crate::ui::viewer::LineContent;
+use crate::ai::AiResponse;
 use ratatui::style::Color;
 use textwrap::wrap;
 
@@ -7,16 +8,44 @@ pub struct AiState {
     pub scroll: u16,
     pub is_loading: bool,
     pub query: String,
+    pub show_thinking: bool,  // thinking process 표시 여부
+    pub thinking_lines: Vec<LineContent>,  // thinking process 섹션
+    pub result_lines: Vec<LineContent>,    // 최종 결과 섹션
 }
 
 impl AiState {
-    pub fn new(response: String) -> Self {
-        let lines = Self::format_response(&response);
+    pub fn new(response: AiResponse) -> Self {
+        let mut all_lines = Vec::new();
+        let mut thinking_lines = Vec::new();
+        let mut result_lines = Vec::new();
+
+        // Thinking process (접을 수 있음)
+        if let Some(thinking) = &response.thinking {
+            if !thinking.is_empty() {
+                thinking_lines.push(Self::create_line("💭 Thinking Process (T로 토글)"));
+                thinking_lines.push(Self::create_line(&"─".repeat(80)));
+                thinking_lines.extend(Self::format_response(thinking));
+                thinking_lines.push(Self::create_line(&"─".repeat(80)));
+
+                all_lines.extend(thinking_lines.clone());
+            }
+        }
+
+        // 최종 결과 (강조)
+        result_lines.push(Self::create_line(""));
+        result_lines.push(Self::create_line_bright("✨ 분석 결과"));
+        result_lines.extend(Self::format_response(&response.result));
+
+        all_lines.extend(result_lines.clone());
+
         Self {
-            lines,
+            lines: all_lines,
             scroll: 0,
             is_loading: false,
             query: String::new(),
+            show_thinking: response.thinking.is_some(),  // 기본값: thinking이 있으면 표시
+            thinking_lines,
+            result_lines,
         }
     }
 
@@ -26,6 +55,9 @@ impl AiState {
             scroll: 0,
             is_loading: true,
             query,
+            show_thinking: false,
+            thinking_lines: Vec::new(),
+            result_lines: Vec::new(),
         }
     }
 
@@ -35,7 +67,28 @@ impl AiState {
             scroll: 0,
             is_loading: false,
             query: String::new(),
+            show_thinking: false,
+            thinking_lines: Vec::new(),
+            result_lines: Vec::new(),
         }
+    }
+
+    pub fn toggle_thinking(&mut self) {
+        self.show_thinking = !self.show_thinking;
+        self.rebuild_lines();
+    }
+
+    fn rebuild_lines(&mut self) {
+        let mut lines = Vec::new();
+
+        if self.show_thinking && !self.thinking_lines.is_empty() {
+            lines.extend(self.thinking_lines.clone());
+        }
+        lines.extend(self.result_lines.clone());
+
+        self.lines = lines;
+        // 스크롤 위치 유지 (필요시 조정)
+        self.scroll = self.scroll.min((self.lines.len() as u16).saturating_sub(20));
     }
 
     pub fn scroll_up(&mut self) {
@@ -78,6 +131,13 @@ impl AiState {
         LineContent {
             raw: text.to_string(),
             styled: vec![(Color::White, text.to_string(), false)],
+        }
+    }
+
+    fn create_line_bright(text: &str) -> LineContent {
+        LineContent {
+            raw: text.to_string(),
+            styled: vec![(Color::Cyan, text.to_string(), true)],  // Cyan + Bold
         }
     }
 }

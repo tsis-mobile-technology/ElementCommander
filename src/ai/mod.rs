@@ -9,21 +9,24 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AiResponse {
-    pub content: String,
+    pub thinking: Option<String>,  // CoT thinking process
+    pub result: String,             // 최종 결과
     pub is_error: bool,
 }
 
 impl AiResponse {
-    pub fn new(content: String) -> Self {
+    pub fn new(thinking: Option<String>, result: String) -> Self {
         Self {
-            content,
+            thinking,
+            result,
             is_error: false,
         }
     }
 
     pub fn error(content: String) -> Self {
         Self {
-            content,
+            thinking: None,
+            result: content,
             is_error: true,
         }
     }

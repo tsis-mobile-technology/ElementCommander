@@ -32,7 +32,13 @@ pub fn handle_key_event(key: KeyEvent) -> Command {
         KeyCode::F(10) => Command::Quit,
         KeyCode::Char('a') if key.modifiers.contains(KeyModifiers::CONTROL) => Command::SelectAll,
         KeyCode::Char('f') if key.modifiers.contains(KeyModifiers::CONTROL) => Command::Find,
+        // AI 커멘더 단축키
         KeyCode::Char('g') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiSummarize,
+        KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiSecurityScan,
+        KeyCode::Char('i') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiImageInfo,
+        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiCodeStructure,
+        KeyCode::Char('d') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiFileDiff,
+        KeyCode::Char('a') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiFolderAnalysis,
         KeyCode::Char('h') if key.modifiers.contains(KeyModifiers::CONTROL) => Command::ToggleHidden,
         KeyCode::Char('l') if key.modifiers.contains(KeyModifiers::CONTROL) => Command::Refresh,
         KeyCode::Char('=') => Command::Filter,
@@ -127,6 +133,7 @@ pub fn handle_ai_event(event: Event) -> Command {
                 KeyCode::PageUp => Command::AiPageUp,
                 KeyCode::PageDown => Command::AiPageDown,
                 KeyCode::Char('q') => Command::AiCancel,
+                KeyCode::Char('t') | KeyCode::Char('T') => Command::AiToggleThinking,
                 _ => Command::None,
             }
         }

@@ -427,6 +427,7 @@ impl App {
                     if !entry.is_dir {
                         let path = entry.path.clone();
                         let file_path = path.display().to_string();
+                        tracing::info!("AI 요약 시작: {}", file_path);
                         self.ai_state = Some(crate::ai::AiState::loading(file_path.clone()));
                         self.mode = AppMode::AiChat;
 
@@ -442,8 +443,8 @@ impl App {
                                     if content.len() > 50000 {
                                         let truncated = format!("{}... (파일이 너무 커서 처음 50KB만 표시)", &content[..50000]);
                                         match client.summarize_file(truncated, file_path).await {
-                                            Ok(response) => {
-                                                let _ = tx.send(Command::AiResponse(response));
+                                            Ok(ai_response) => {
+                                                let _ = tx.send(Command::AiResponse(ai_response));
                                             }
                                             Err(e) => {
                                                 let _ = tx.send(Command::AiError(e.to_string()));
@@ -451,8 +452,8 @@ impl App {
                                         }
                                     } else {
                                         match client.summarize_file(content, file_path).await {
-                                            Ok(response) => {
-                                                let _ = tx.send(Command::AiResponse(response));
+                                            Ok(ai_response) => {
+                                                let _ = tx.send(Command::AiResponse(ai_response));
                                             }
                                             Err(e) => {
                                                 let _ = tx.send(Command::AiError(e.to_string()));
@@ -468,10 +469,259 @@ impl App {
                     }
                 }
             }
-            Command::AiResponse(text) => {
-                self.ai_state = Some(crate::ai::AiState::new(text));
+
+            Command::AiSecurityScan => {
+                if let Some(entry) = self.active_panel().get_current_entry() {
+                    if !entry.is_dir {
+                        let path = entry.path.clone();
+                        let file_path = path.display().to_string();
+                        tracing::info!("보안 스캔 시작: {}", file_path);
+                        self.ai_state = Some(crate::ai::AiState::loading(format!("보안 스캔: {}", file_path)));
+                        self.mode = AppMode::AiChat;
+
+                        let tx = self.tx.clone();
+                        tokio::spawn(async move {
+                            let client = crate::ai::AiClient::new(
+                                "http://localhost:8080/v1".to_string(),
+                                "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                            );
+
+                            match std::fs::read_to_string(&path) {
+                                Ok(content) => {
+                                    let truncated = if content.len() > 50000 {
+                                        format!("{}... (처음 50KB만 스캔)", &content[..50000])
+                                    } else {
+                                        content
+                                    };
+                                    match client.scan_security(truncated, file_path).await {
+                                        Ok(ai_response) => {
+                                            let _ = tx.send(Command::AiResponse(ai_response));
+                                        }
+                                        Err(e) => {
+                                            let _ = tx.send(Command::AiError(e.to_string()));
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    let _ = tx.send(Command::AiError(format!("파일을 읽을 수 없습니다: {}", e)));
+                                }
+                            }
+                        });
+                    }
+                }
+            }
+
+            Command::AiImageInfo => {
+                if let Some(entry) = self.active_panel().get_current_entry() {
+                    if !entry.is_dir {
+                        let path = entry.path.clone();
+                        let file_path = path.display().to_string();
+                        let is_image = matches!(
+                            path.extension().and_then(|s| s.to_str()).unwrap_or(""),
+                            "jpg" | "jpeg" | "png" | "gif" | "webp" | "bmp" | "tiff"
+                        );
+
+                        if is_image {
+                            tracing::info!("이미지 분석 시작: {}", file_path);
+                            self.ai_state = Some(crate::ai::AiState::loading(format!("이미지 분석: {}", file_path)));
+                            self.mode = AppMode::AiChat;
+
+                            let tx = self.tx.clone();
+                            tokio::spawn(async move {
+                                let client = crate::ai::AiClient::new(
+                                    "http://localhost:8080/v1".to_string(),
+                                    "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                                );
+
+                                // 이미지 파일 정보 (간단한 메타 정보 수집)
+                                match std::fs::metadata(&path) {
+                                    Ok(metadata) => {
+                                        let file_info = format!(
+                                            "파일명: {}\n크기: {} bytes\n수정일: {:?}",
+                                            path.file_name().unwrap_or_default().to_string_lossy(),
+                                            metadata.len(),
+                                            metadata.modified()
+                                        );
+                                        match client.analyze_folder(file_info, file_path).await {
+                                            Ok(ai_response) => {
+                                                let _ = tx.send(Command::AiResponse(ai_response));
+                                            }
+                                            Err(e) => {
+                                                let _ = tx.send(Command::AiError(e.to_string()));
+                                            }
+                                        }
+                                    }
+                                    Err(e) => {
+                                        let _ = tx.send(Command::AiError(format!("파일 정보를 읽을 수 없습니다: {}", e)));
+                                    }
+                                }
+                            });
+                        } else {
+                            self.ai_state = Some(crate::ai::AiState::error("이미지 파일을 선택해주세요".to_string()));
+                            self.mode = AppMode::AiChat;
+                        }
+                    }
+                }
+            }
+
+            Command::AiCodeStructure => {
+                if let Some(entry) = self.active_panel().get_current_entry() {
+                    if !entry.is_dir {
+                        let path = entry.path.clone();
+                        let file_path = path.display().to_string();
+                        let is_code = matches!(
+                            path.extension().and_then(|s| s.to_str()).unwrap_or(""),
+                            "rs" | "py" | "js" | "ts" | "go" | "c" | "cpp" | "java" | "rb" | "php"
+                        );
+
+                        if is_code {
+                            tracing::info!("코드 분석 시작: {}", file_path);
+                            self.ai_state = Some(crate::ai::AiState::loading(format!("코드 분석: {}", file_path)));
+                            self.mode = AppMode::AiChat;
+
+                            let tx = self.tx.clone();
+                            tokio::spawn(async move {
+                                let client = crate::ai::AiClient::new(
+                                    "http://localhost:8080/v1".to_string(),
+                                    "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                                );
+
+                                match std::fs::read_to_string(&path) {
+                                    Ok(content) => {
+                                        let truncated = if content.len() > 50000 {
+                                            format!("{}... (처음 50KB만 분석)", &content[..50000])
+                                        } else {
+                                            content
+                                        };
+                                        match client.analyze_code(truncated, file_path).await {
+                                            Ok(ai_response) => {
+                                                let _ = tx.send(Command::AiResponse(ai_response));
+                                            }
+                                            Err(e) => {
+                                                let _ = tx.send(Command::AiError(e.to_string()));
+                                            }
+                                        }
+                                    }
+                                    Err(e) => {
+                                        let _ = tx.send(Command::AiError(format!("파일을 읽을 수 없습니다: {}", e)));
+                                    }
+                                }
+                            });
+                        } else {
+                            self.ai_state = Some(crate::ai::AiState::error("코드 파일을 선택해주세요".to_string()));
+                            self.mode = AppMode::AiChat;
+                        }
+                    }
+                }
+            }
+
+            Command::AiFileDiff => {
+                if !self.active_panel().selected.is_empty() && self.active_panel().selected.len() == 2 {
+                    let entries = self.active_panel().get_selected_entries();
+                    if entries.len() == 2 && !entries[0].is_dir && !entries[1].is_dir {
+                        let path1 = entries[0].path.clone();
+                        let path2 = entries[1].path.clone();
+                        let display1 = path1.display().to_string();
+                        let display2 = path2.display().to_string();
+
+                        tracing::info!("파일 비교 시작: {} vs {}", display1, display2);
+                        self.ai_state = Some(crate::ai::AiState::loading("파일 비교 중...".to_string()));
+                        self.mode = AppMode::AiChat;
+
+                        let tx = self.tx.clone();
+                        tokio::spawn(async move {
+                            let client = crate::ai::AiClient::new(
+                                "http://localhost:8080/v1".to_string(),
+                                "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                            );
+
+                            match (std::fs::read_to_string(&path1), std::fs::read_to_string(&path2)) {
+                                (Ok(content1), Ok(_content2)) => {
+                                    let truncated = if content1.len() > 50000 {
+                                        format!("{}... (처음 50KB만 비교)", &content1[..50000])
+                                    } else {
+                                        content1
+                                    };
+                                    match client.compare_files(truncated, display1, display2).await {
+                                        Ok(ai_response) => {
+                                            let _ = tx.send(Command::AiResponse(ai_response));
+                                        }
+                                        Err(e) => {
+                                            let _ = tx.send(Command::AiError(e.to_string()));
+                                        }
+                                    }
+                                }
+                                _ => {
+                                    let _ = tx.send(Command::AiError("파일을 읽을 수 없습니다".to_string()));
+                                }
+                            }
+                        });
+                    } else {
+                        self.ai_state = Some(crate::ai::AiState::error("2개의 파일을 선택해주세요".to_string()));
+                        self.mode = AppMode::AiChat;
+                    }
+                } else {
+                    self.ai_state = Some(crate::ai::AiState::error("비교할 파일 2개를 선택하세요 (Insert)".to_string()));
+                    self.mode = AppMode::AiChat;
+                }
+            }
+
+            Command::AiFolderAnalysis => {
+                if let Some(entry) = self.active_panel().get_current_entry() {
+                    if entry.is_dir {
+                        let path = entry.path.clone();
+                        let file_path = path.display().to_string();
+                        tracing::info!("폴더 분석 시작: {}", file_path);
+                        self.ai_state = Some(crate::ai::AiState::loading(format!("폴더 분석: {}", file_path)));
+                        self.mode = AppMode::AiChat;
+
+                        let tx = self.tx.clone();
+                        tokio::spawn(async move {
+                            let client = crate::ai::AiClient::new(
+                                "http://localhost:8080/v1".to_string(),
+                                "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                            );
+
+                            // 폴더 구조 정보 수집
+                            let mut folder_info = format!("폴더: {}\n", file_path);
+                            if let Ok(entries) = std::fs::read_dir(&path) {
+                                folder_info.push_str("주요 파일/폴더:\n");
+                                let mut count = 0;
+                                for entry in entries.flatten() {
+                                    if count >= 20 {
+                                        folder_info.push_str("... (더 많은 항목)\n");
+                                        break;
+                                    }
+                                    if let Ok(name) = entry.file_name().into_string() {
+                                        folder_info.push_str(&format!("  - {}\n", name));
+                                        count += 1;
+                                    }
+                                }
+                            }
+
+                            match client.analyze_folder(folder_info, file_path).await {
+                                Ok(ai_response) => {
+                                    let _ = tx.send(Command::AiResponse(ai_response));
+                                }
+                                Err(e) => {
+                                    let _ = tx.send(Command::AiError(e.to_string()));
+                                }
+                            }
+                        });
+                    } else {
+                        self.ai_state = Some(crate::ai::AiState::error("폴더를 선택해주세요".to_string()));
+                        self.mode = AppMode::AiChat;
+                    }
+                }
+            }
+            Command::AiResponse(ai_response) => {
+                tracing::info!("AI 응답 수신 - thinking: {:?}, result: {} 글자",
+                    ai_response.thinking.as_ref().map(|t| t.len()),
+                    ai_response.result.len());
+                self.ai_state = Some(crate::ai::AiState::new(ai_response));
             }
             Command::AiError(err) => {
+                tracing::error!("AI 오류 수신: {}", err);
                 self.ai_state = Some(crate::ai::AiState::error(err));
             }
             Command::AiCancel => {
@@ -496,6 +746,11 @@ impl App {
             Command::AiPageDown => {
                 if let Some(ai_state) = &mut self.ai_state {
                     ai_state.page_down(20);
+                }
+            }
+            Command::AiToggleThinking => {
+                if let Some(ai_state) = &mut self.ai_state {
+                    ai_state.toggle_thinking();
                 }
             }
             _ => {} // Other commands will be implemented in later phases

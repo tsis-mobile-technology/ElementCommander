@@ -43,7 +43,28 @@ pub fn render_ai_mode(frame: &mut Frame, ai_state: &AiState) {
         .iter()
         .skip(ai_state.scroll as usize)
         .take(content_height as usize)
-        .map(|line| Line::from(vec![Span::raw(line.raw.clone())]))
+        .map(|line| {
+            // LineContent의 styled 정보 사용
+            if !line.styled.is_empty() {
+                let spans: Vec<Span> = line
+                    .styled
+                    .iter()
+                    .map(|(color, text, bold)| {
+                        let style = if *bold {
+                            Style::default()
+                                .fg(*color)
+                                .add_modifier(Modifier::BOLD)
+                        } else {
+                            Style::default().fg(*color)
+                        };
+                        Span::styled(text.clone(), style)
+                    })
+                    .collect();
+                Line::from(spans)
+            } else {
+                Line::from(Span::raw(line.raw.clone()))
+            }
+        })
         .collect();
 
     let content = Paragraph::new(visible_lines)
@@ -60,8 +81,14 @@ pub fn render_ai_mode(frame: &mut Frame, ai_state: &AiState) {
             "❌ 오류 발생 (↑↓ 스크롤, PgUp/PgDn 페이지, ESC/q 닫기)",
         )
     } else {
+        let thinking_indicator = if ai_state.show_thinking {
+            "💭 ON"
+        } else {
+            "💭 OFF"
+        };
         format!(
-            "✓ 스크롤: ↑↓ | 페이지: PgUp/PgDn | 닫기: ESC/q ({}/{})",
+            "✓ 스크롤: ↑↓ | 페이지: PgUp/PgDn | Thinking: T | 닫기: ESC/q  [{}] ({}/{})",
+            thinking_indicator,
             ai_state.scroll + 1,
             (ai_state.lines.len() as u16).max(1)
         )
