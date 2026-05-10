@@ -101,7 +101,21 @@ To use the AI features:
 2. Recommended model: **Qwen 35B** or similar CoT (Chain-of-Thought) models.
 
 ```bash
-./llama-server -m models/Qwen_Qwen3.6-35B-A3B-Q4_0.gguf --port 8080 --ctx-size 2048
+docker run -d --name llama-server \
+--gpus all \
+--cap-add IPC_LOCK \
+--ulimit memlock=-1:-1 \
+-p 8080:8080 \
+-v ~/Programming/models:/models \
+ghcr.io/ggml-org/llama.cpp:server-cuda \
+-m /models/Qwen_Qwen3.6-35B-A3B-Q4_0.gguf \
+--n-cpu-moe 20 \
+--no-mmap \
+--cache-type-k q4_0 \
+--cache-type-v q4_0 \
+--mlock \
+-c 70000
+
 ```
 
 ## Configuration
