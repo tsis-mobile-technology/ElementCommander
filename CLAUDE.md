@@ -150,6 +150,7 @@ cargo run
 | `=` | Wildcard filter |
 | Ctrl+F | Find files (recursive) |
 | Alt+U | Find duplicate files |
+| Alt+O | Analyze old files for cleanup |
 | F5 | Copy / Extract (from archive) |
 | Alt+F5 | Pack files (into archive) |
 | F6 | Move |
@@ -190,7 +191,7 @@ cargo run
 - [x] Theme system (Classic/Dark)
 - [x] File viewer with syntax highlighting (F3)
 
-### 🚀 Phase 6: AI Commander (In Progress - 13/20 Features)
+### 🚀 Phase 6: AI Commander (In Progress - 14/20 Features)
 - [x] Ctrl+G Natural language commands
 - [x] Alt+B Batch rename with AI suggestions
 - [x] Alt+R README auto-generation
@@ -204,8 +205,8 @@ cargo run
 - [x] Alt+A Folder structure analysis
 - [x] Ctrl+F Smart search with natural language
 - [x] Alt+U Duplicate file detection
+- [x] Alt+O Old file cleanup recommendations
 - [ ] Auto file classification
-- [ ] Old file cleanup recommendations
 - [ ] Storage optimization analysis
 - [ ] Git change history analysis
 - [ ] File operation macro learning

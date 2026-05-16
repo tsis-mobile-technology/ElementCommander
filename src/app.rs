@@ -835,6 +835,43 @@ impl App {
                 });
             }
 
+            Command::AiOldFiles => {
+                let path = self.active_panel().path.clone();
+                let display_path = path.display().to_string();
+
+                tracing::info!("오래된 파일 분석 시작: {}", display_path);
+                self.ai_state = Some(crate::ai::AiState::loading(format!("오래된 파일 분석: {}", display_path)));
+                self.mode = AppMode::AiChat;
+
+                let tx = self.tx.clone();
+                tokio::spawn(async move {
+                    let client = crate::ai::AiClient::new(
+                        "http://localhost:8080/v1".to_string(),
+                        "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                    );
+
+                    match crate::ops::cleanup::analyze_old_files(&path) {
+                        Ok(report) => {
+                            let summary = crate::ops::cleanup::format_report(&report);
+
+                            // AI에게 정리 조언 요청
+                            match client.recommend_cleanup(&summary).await {
+                                Ok(ai_response) => {
+                                    let _ = tx.send(Command::AiResponse(ai_response));
+                                }
+                                Err(_) => {
+                                    // AI 실패 시 요약만 표시
+                                    let _ = tx.send(Command::OldFilesResult(summary));
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            let _ = tx.send(Command::AiError(format!("오래된 파일 분석 실패: {}", e)));
+                        }
+                    }
+                });
+            }
+
             Command::AiGenerateReadme => {
                 let entry = self.active_panel().get_current_entry();
                 let root_path = if let Some(e) = entry {
@@ -932,6 +969,10 @@ impl App {
             }
             Command::DuplicatesResult(text) => {
                 // AI 없이 중복 파일 결과 표시 (fallback)
+                self.ai_state = Some(crate::ai::AiState::new(crate::ai::AiResponse::new(None, text)));
+            }
+            Command::OldFilesResult(text) => {
+                // AI 없이 오래된 파일 결과 표시 (fallback)
                 self.ai_state = Some(crate::ai::AiState::new(crate::ai::AiResponse::new(None, text)));
             }
             Command::AiCancel => {

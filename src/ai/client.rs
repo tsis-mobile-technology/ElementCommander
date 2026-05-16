@@ -98,6 +98,15 @@ impl AiClient {
         self.query(&prompt).await
     }
 
+    pub async fn recommend_cleanup(&self, summary: &str) -> Result<crate::ai::AiResponse> {
+        let prompt = format!(
+            "다음은 파일 시스템 정리 분석 결과입니다.\n\n{}\n\n오래된 파일 중 어떤 것을 정리하면 좋을지 조언해주세요.",
+            summary
+        );
+
+        self.query(&prompt).await
+    }
+
     pub async fn interpret_command(
         &self,
         nl_command: &str,

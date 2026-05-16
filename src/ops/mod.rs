@@ -5,3 +5,4 @@
 pub mod search;
 pub mod archive;
 pub mod duplicate;
+pub mod cleanup;
