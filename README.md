@@ -16,12 +16,15 @@ A Total Commander-style dual-pane TUI file manager written in Rust, supercharged
 🚀 **Phase 5: Complete** - All core features implemented
 🤖 **AI Commander: In Progress** - **12/20** features implemented (**60%**)
 
-**Key Milestones (2026-05-10):**
+**Key Milestones (2026-05-16)**:
 - ✅ **Smart Search**: Natural language based recursive file searching
 - ✅ **README Generation**: Auto-generate project documentation using AI
 - ✅ **File Notes**: Persistent AI-powered notes and tagging for files
 - ✅ **Scripting**: Generate executable bash scripts from natural language
 - ✅ **Resource Polish**: CPU usage optimized (~0% idle), Terminal recovery improved
+- ✅ **Help System**: Interactive F1 help with 2-column layout
+- ✅ **Theme System**: Classic and Dark color schemes with full customization
+- ✅ **File Viewer**: Syntax-highlighted code and Markdown preview (F3)
 
 ## Keybindings (Shortcuts)
 
