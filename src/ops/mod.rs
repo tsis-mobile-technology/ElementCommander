@@ -9,3 +9,4 @@ pub mod cleanup;
 pub mod classify;
 pub mod storage;
 pub mod git_history;
+pub mod sync;

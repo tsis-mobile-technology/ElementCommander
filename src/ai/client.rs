@@ -134,6 +134,15 @@ impl AiClient {
         self.query(&prompt).await
     }
 
+    pub async fn analyze_sync_diff(&self, summary: &str) -> Result<crate::ai::AiResponse> {
+        let prompt = format!(
+            "다음은 두 폴더의 동기화 분석 결과입니다.\n\n{}\n\n어떤 파일을 동기화해야 할지 권고해주세요.",
+            summary
+        );
+
+        self.query(&prompt).await
+    }
+
     pub async fn interpret_command(
         &self,
         nl_command: &str,

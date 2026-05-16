@@ -989,6 +989,48 @@ impl App {
                 });
             }
 
+            Command::AiFolderSync => {
+                let left_path = self.left_panel.path.clone();
+                let right_path = self.right_panel.path.clone();
+                let display_str = format!("{} ↔ {}", left_path.display(), right_path.display());
+
+                tracing::info!("폴더 동기화 분석 시작: {}", display_str);
+                self.ai_state = Some(crate::ai::AiState::loading(format!("폴더 동기화 분석: {}", display_str)));
+                self.mode = AppMode::AiChat;
+
+                let tx = self.tx.clone();
+                tokio::spawn(async move {
+                    let client = crate::ai::AiClient::new(
+                        "http://localhost:8080/v1".to_string(),
+                        "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                    );
+
+                    match crate::ops::sync::analyze_sync(&left_path, &right_path) {
+                        Ok(report) => {
+                            let summary = crate::ops::sync::format_report(&report);
+
+                            // AI에게 분석 요청
+                            match client.analyze_sync_diff(&summary).await {
+                                Ok(ai_response) => {
+                                    let _ = tx.send(Command::AiResponse(ai_response));
+                                }
+                                Err(_) => {
+                                    // AI 실패 시 요약만 표시
+                                    let _ = tx.send(Command::SyncResult(summary));
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            let _ = tx.send(Command::AiError(format!("동기화 분석 실패: {}", e)));
+                        }
+                    }
+                });
+            }
+
+            Command::SyncResult(text) => {
+                self.ai_state = Some(crate::ai::AiState::new(crate::ai::AiResponse::new(None, text)));
+            }
+
             Command::AiGenerateReadme => {
                 let entry = self.active_panel().get_current_entry();
                 let root_path = if let Some(e) = entry {

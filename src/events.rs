@@ -47,6 +47,7 @@ pub fn handle_key_event(key: KeyEvent) -> Command {
         KeyCode::Char('f') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiFileClassify,
         KeyCode::Char('k') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiStorageOptimize,
         KeyCode::Char('v') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiGitHistory,
+        KeyCode::Char('y') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiFolderSync,
         KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiGenerateReadme,
         KeyCode::Char('n') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiAddNote,
         KeyCode::Char('x') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiGenerateScript,

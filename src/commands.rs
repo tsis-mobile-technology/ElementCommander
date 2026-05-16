@@ -87,5 +87,7 @@ pub enum Command {
     ClassifyResult(String),
     StorageResult(String),
     GitHistoryResult(String),
+    AiFolderSync,
+    SyncResult(String),
     None,
 }
