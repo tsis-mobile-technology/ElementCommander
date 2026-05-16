@@ -57,6 +57,7 @@ pub enum Command {
     AiCodeStructure,
     AiFileDiff,
     AiFolderAnalysis,
+    AiFindDuplicates,
     AiGenerateReadme,
     AiAddNote,
     AiGenerateScript,
@@ -77,5 +78,6 @@ pub enum Command {
     AiCommandCancel,
     AiCommandScrollUp,
     AiCommandScrollDown,
+    DuplicatesResult(String),
     None,
 }

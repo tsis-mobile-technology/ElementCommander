@@ -25,6 +25,10 @@ impl FileEntry {
     }
 
     pub fn format_size(size: u64) -> String {
+        Self::format_size_static(size)
+    }
+
+    pub fn format_size_static(size: u64) -> String {
         const UNITS: &[&str] = &["B", "K", "M", "G", "T"];
         let mut size = size as f64;
         let mut unit_idx = 0;

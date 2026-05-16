@@ -89,6 +89,15 @@ impl AiClient {
         self.query(&prompt).await
     }
 
+    pub async fn analyze_duplicates(&self, summary: &str) -> Result<crate::ai::AiResponse> {
+        let prompt = format!(
+            "다음은 파일 시스템 중복 파일 탐색 결과입니다.\n\n{}\n\n어떤 파일을 삭제하거나 정리하면 좋을지 간략하게 조언해주세요.",
+            summary
+        );
+
+        self.query(&prompt).await
+    }
+
     pub async fn interpret_command(
         &self,
         nl_command: &str,

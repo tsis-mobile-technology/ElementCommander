@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Use basic skill karpathy-guidelines 
+
 ---
 
 ## Project Overview
@@ -147,6 +149,7 @@ cargo run
 | `/` | Quick search (type-to-filter) |
 | `=` | Wildcard filter |
 | Ctrl+F | Find files (recursive) |
+| Alt+U | Find duplicate files |
 | F5 | Copy / Extract (from archive) |
 | Alt+F5 | Pack files (into archive) |
 | F6 | Move |
@@ -187,7 +190,7 @@ cargo run
 - [x] Theme system (Classic/Dark)
 - [x] File viewer with syntax highlighting (F3)
 
-### 🚀 Phase 6: AI Commander (In Progress - 12/20 Features)
+### 🚀 Phase 6: AI Commander (In Progress - 13/20 Features)
 - [x] Ctrl+G Natural language commands
 - [x] Alt+B Batch rename with AI suggestions
 - [x] Alt+R README auto-generation
@@ -200,7 +203,7 @@ cargo run
 - [x] Alt+D File comparison and diff
 - [x] Alt+A Folder structure analysis
 - [x] Ctrl+F Smart search with natural language
-- [ ] Duplicate file detection
+- [x] Alt+U Duplicate file detection
 - [ ] Auto file classification
 - [ ] Old file cleanup recommendations
 - [ ] Storage optimization analysis
