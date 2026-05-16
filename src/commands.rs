@@ -60,6 +60,7 @@ pub enum Command {
     AiFindDuplicates,
     AiOldFiles,
     AiFileClassify,
+    AiStorageOptimize,
     AiGenerateReadme,
     AiAddNote,
     AiGenerateScript,
@@ -83,5 +84,6 @@ pub enum Command {
     DuplicatesResult(String),
     OldFilesResult(String),
     ClassifyResult(String),
+    StorageResult(String),
     None,
 }

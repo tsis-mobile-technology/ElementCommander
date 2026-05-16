@@ -7,3 +7,4 @@ pub mod archive;
 pub mod duplicate;
 pub mod cleanup;
 pub mod classify;
+pub mod storage;

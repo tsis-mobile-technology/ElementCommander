@@ -909,6 +909,43 @@ impl App {
                 });
             }
 
+            Command::AiStorageOptimize => {
+                let path = self.active_panel().path.clone();
+                let display_path = path.display().to_string();
+
+                tracing::info!("저장소 분석 시작: {}", display_path);
+                self.ai_state = Some(crate::ai::AiState::loading(format!("저장소 분석: {}", display_path)));
+                self.mode = AppMode::AiChat;
+
+                let tx = self.tx.clone();
+                tokio::spawn(async move {
+                    let client = crate::ai::AiClient::new(
+                        "http://localhost:8080/v1".to_string(),
+                        "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                    );
+
+                    match crate::ops::storage::analyze_storage(&path) {
+                        Ok(report) => {
+                            let summary = crate::ops::storage::format_report(&report);
+
+                            // AI에게 최적화 제안 요청
+                            match client.analyze_storage(&summary).await {
+                                Ok(ai_response) => {
+                                    let _ = tx.send(Command::AiResponse(ai_response));
+                                }
+                                Err(_) => {
+                                    // AI 실패 시 요약만 표시
+                                    let _ = tx.send(Command::StorageResult(summary));
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            let _ = tx.send(Command::AiError(format!("저장소 분석 실패: {}", e)));
+                        }
+                    }
+                });
+            }
+
             Command::AiGenerateReadme => {
                 let entry = self.active_panel().get_current_entry();
                 let root_path = if let Some(e) = entry {
@@ -1014,6 +1051,10 @@ impl App {
             }
             Command::ClassifyResult(text) => {
                 // AI 없이 파일 분류 결과 표시 (fallback)
+                self.ai_state = Some(crate::ai::AiState::new(crate::ai::AiResponse::new(None, text)));
+            }
+            Command::StorageResult(text) => {
+                // AI 없이 저장소 분석 결과 표시 (fallback)
                 self.ai_state = Some(crate::ai::AiState::new(crate::ai::AiResponse::new(None, text)));
             }
             Command::AiCancel => {

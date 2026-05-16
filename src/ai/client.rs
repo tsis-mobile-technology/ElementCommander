@@ -116,6 +116,15 @@ impl AiClient {
         self.query(&prompt).await
     }
 
+    pub async fn analyze_storage(&self, summary: &str) -> Result<crate::ai::AiResponse> {
+        let prompt = format!(
+            "다음은 저장소 사용 현황 분석 결과입니다.\n\n{}\n\n디스크 공간을 절약하려면 어떻게 정리하면 좋을지 제안해주세요.",
+            summary
+        );
+
+        self.query(&prompt).await
+    }
+
     pub async fn interpret_command(
         &self,
         nl_command: &str,
