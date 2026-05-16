@@ -59,6 +59,7 @@ pub enum Command {
     AiFolderAnalysis,
     AiFindDuplicates,
     AiOldFiles,
+    AiFileClassify,
     AiGenerateReadme,
     AiAddNote,
     AiGenerateScript,
@@ -81,5 +82,6 @@ pub enum Command {
     AiCommandScrollDown,
     DuplicatesResult(String),
     OldFilesResult(String),
+    ClassifyResult(String),
     None,
 }

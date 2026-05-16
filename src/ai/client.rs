@@ -107,6 +107,15 @@ impl AiClient {
         self.query(&prompt).await
     }
 
+    pub async fn suggest_classification(&self, summary: &str) -> Result<crate::ai::AiResponse> {
+        let prompt = format!(
+            "다음은 파일 시스템 유형 분류 결과입니다.\n\n{}\n\n폴더를 더 잘 정리하려면 어떻게 구성하면 좋을지 제안해주세요.",
+            summary
+        );
+
+        self.query(&prompt).await
+    }
+
     pub async fn interpret_command(
         &self,
         nl_command: &str,

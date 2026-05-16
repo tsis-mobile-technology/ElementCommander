@@ -44,6 +44,7 @@ pub fn handle_key_event(key: KeyEvent) -> Command {
         KeyCode::Char('a') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiFolderAnalysis,
         KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiFindDuplicates,
         KeyCode::Char('o') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiOldFiles,
+        KeyCode::Char('f') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiFileClassify,
         KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiGenerateReadme,
         KeyCode::Char('n') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiAddNote,
         KeyCode::Char('x') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiGenerateScript,
