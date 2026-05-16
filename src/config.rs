@@ -68,6 +68,51 @@ impl NotesStore {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct MacrosStore {
+    pub macros: std::collections::HashMap<String, Vec<crate::commands::PlannedOp>>,
+}
+
+impl MacrosStore {
+    pub fn load() -> Self {
+        let config_dir = dirs::config_dir()
+            .map(|p| p.join("hermes_tail"))
+            .unwrap_or_else(|| PathBuf::from(".hermes_tail"));
+        let path = config_dir.join("macros.json");
+
+        if let Ok(content) = fs::read_to_string(path) {
+            serde_json::from_str(&content).unwrap_or_default()
+        } else {
+            Self::default()
+        }
+    }
+
+    pub fn save(&self) -> Result<()> {
+        let config_dir = dirs::config_dir()
+            .map(|p| p.join("hermes_tail"))
+            .unwrap_or_else(|| PathBuf::from(".hermes_tail"));
+        fs::create_dir_all(&config_dir)?;
+        let path = config_dir.join("macros.json");
+        let content = serde_json::to_string_pretty(self)?;
+        fs::write(path, content)?;
+        Ok(())
+    }
+
+    pub fn add(&mut self, name: String, ops: Vec<crate::commands::PlannedOp>) {
+        self.macros.insert(name, ops);
+    }
+
+    pub fn get(&self, name: &str) -> Option<&Vec<crate::commands::PlannedOp>> {
+        self.macros.get(name)
+    }
+
+    pub fn list(&self) -> Vec<String> {
+        let mut names: Vec<_> = self.macros.keys().cloned().collect();
+        names.sort();
+        names
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UiConfig {
     pub show_hidden: bool,

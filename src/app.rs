@@ -40,6 +40,9 @@ pub struct App {
     pub search_query: String,
     pub config: Config,
     pub notes: crate::config::NotesStore,
+    pub macros: crate::config::MacrosStore,
+    pub recording: Option<Vec<crate::commands::PlannedOp>>,
+    pub pending_macro_ops: Option<Vec<crate::commands::PlannedOp>>,
     pub theme: crate::ui::theme::Theme,
     pub should_quit: bool,
     pub tx: mpsc::UnboundedSender<Command>,
@@ -74,6 +77,7 @@ impl App {
         let (tx, rx) = mpsc::unbounded_channel();
         let theme = crate::ui::theme::Theme::from_name(&config.ui.color_scheme);
         let notes = crate::config::NotesStore::load();
+        let macros = crate::config::MacrosStore::load();
 
         Ok(App {
             left_panel,
@@ -87,6 +91,9 @@ impl App {
             search_query: String::new(),
             config,
             notes,
+            macros,
+            recording: None,
+            pending_macro_ops: None,
             theme,
             should_quit: false,
             tx,
@@ -385,6 +392,38 @@ impl App {
                 }
             }
             Command::ConfirmDialog => {
+                let dialog_kind = self.dialog.as_ref().map(|d| &d.kind);
+
+                // SaveMacro 다이얼로그 처리
+                if matches!(dialog_kind, Some(crate::ui::dialog::DialogKind::SaveMacro)) {
+                    if let Some(dialog) = &self.dialog {
+                        let name = dialog.input.clone();
+                        if let Some(ops) = self.pending_macro_ops.take() {
+                            self.macros.add(name, ops);
+                            let _ = self.macros.save();
+                        }
+                    }
+                    self.dialog = None;
+                    self.mode = AppMode::Normal;
+                    return Ok(());
+                }
+
+                // RunMacro 다이얼로그 처리
+                if matches!(dialog_kind, Some(crate::ui::dialog::DialogKind::RunMacro)) {
+                    if let Some(dialog) = &self.dialog {
+                        let name = dialog.input.clone();
+                        if let Some(ops) = self.macros.get(&name).cloned() {
+                            self.ai_command_state = Some(crate::ai::AiCommandState {
+                                ops,
+                                scroll: 0,
+                            });
+                            self.mode = AppMode::AiCommandConfirm;
+                        }
+                    }
+                    self.dialog = None;
+                    return Ok(());
+                }
+
                 let is_async_dialog = self.dialog.as_ref()
                     .map(|d| matches!(d.kind, crate::ui::dialog::DialogKind::AiCommand | crate::ui::dialog::DialogKind::BatchRename))
                     .unwrap_or(false);
@@ -1194,7 +1233,7 @@ impl App {
                     let panel_fs = self.active_panel().fs.clone();
 
                     // 파일 작업을 동기로 실행
-                    for op in ops {
+                    for op in &ops {
                         match op {
                             crate::commands::PlannedOp::Delete { path } => {
                                 let is_dir = std::fs::metadata(&path)
@@ -1221,6 +1260,11 @@ impl App {
                         }
                     }
 
+                    // 녹화 중이면 PlannedOp 기록
+                    if let Some(buf) = &mut self.recording {
+                        buf.extend(ops);
+                    }
+
                     // 작업 완료 후 즉시 refresh
                     let _ = self.left_panel.refresh();
                     let _ = self.right_panel.refresh();
@@ -1245,6 +1289,43 @@ impl App {
                     cmd_state.scroll_down();
                 }
             }
+
+            Command::MacroRecord => {
+                if self.recording.is_some() {
+                    // 녹화 중 - 중지하고 이름 입력 다이얼로그 표시
+                    let ops = self.recording.take().unwrap();
+                    if !ops.is_empty() {
+                        self.dialog = Some(crate::ui::dialog::DialogState::new_save_macro());
+                        self.pending_macro_ops = Some(ops);
+                        self.mode = AppMode::Dialog;
+                    }
+                } else {
+                    // 녹화 시작
+                    self.recording = Some(Vec::new());
+                }
+            }
+
+            Command::MacroList => {
+                let list = self.macros.list();
+                let text = if list.is_empty() {
+                    "저장된 매크로가 없습니다.\n\nCtrl+R로 새 매크로를 녹화해주세요.".to_string()
+                } else {
+                    let mut text = "저장된 매크로:\n\n".to_string();
+                    for (i, name) in list.iter().enumerate() {
+                        text.push_str(&format!("{}. {}\n", i + 1, name));
+                    }
+                    text.push_str("\n실행하려면 Alt+P를 누르세요.");
+                    text
+                };
+                self.ai_state = Some(crate::ai::AiState::new(crate::ai::AiResponse::new(None, text)));
+                self.mode = AppMode::AiChat;
+            }
+
+            Command::MacroRun => {
+                self.dialog = Some(crate::ui::dialog::DialogState::new_run_macro());
+                self.mode = AppMode::Dialog;
+            }
+
             _ => {} // Other commands will be implemented in later phases
         }
         Ok(())
@@ -1467,12 +1548,19 @@ impl App {
                     }
                 }
 
+                let mut recorded_ops = Vec::new();
                 for src in srcs {
                     let file_name = src.file_name().unwrap_or_default();
                     let dst = dst_dir.join(file_name);
                     panel.fs.copy(&src, &dst, true)?;
+                    recorded_ops.push(crate::commands::PlannedOp::Copy { from: src, to: dst });
                 }
                 panel.clear_selection();
+
+                // 녹화 중이면 PlannedOp 기록 (panel 참조 해제 후)
+                if let Some(buf) = &mut self.recording {
+                    buf.extend(recorded_ops);
+                }
             }
             DialogKind::Move => {
                 let dst_dir = PathBuf::from(&dialog.input);
@@ -1485,17 +1573,30 @@ impl App {
                     }
                 }
 
+                let mut recorded_ops = Vec::new();
                 for src in srcs {
                     let file_name = src.file_name().unwrap_or_default();
                     let dst = dst_dir.join(file_name);
                     panel.fs.move_entry(&src, &dst)?;
+                    recorded_ops.push(crate::commands::PlannedOp::Move { from: src, to: dst });
                 }
                 panel.clear_selection();
+
+                // 녹화 중이면 PlannedOp 기록 (panel 참조 해제 후)
+                if let Some(buf) = &mut self.recording {
+                    buf.extend(recorded_ops);
+                }
             }
             DialogKind::Mkdir => {
                 let dir_name = dialog.input.clone();
                 let panel = self.active_panel_mut();
-                panel.fs.mkdir(&panel.path.join(&dir_name))?;
+                let path = panel.path.join(&dir_name);
+                panel.fs.mkdir(&path)?;
+
+                // 녹화 중이면 PlannedOp 기록
+                if let Some(buf) = &mut self.recording {
+                    buf.push(crate::commands::PlannedOp::Mkdir { path });
+                }
             }
             DialogKind::Delete => {
                 let panel = self.active_panel_mut();
@@ -1507,20 +1608,35 @@ impl App {
                     }
                 }
 
+                let mut recorded_ops = Vec::new();
                 for src in srcs {
                     if src.is_dir() {
                         panel.fs.delete(&src, true)?;
                     } else {
                         panel.fs.delete(&src, false)?;
                     }
+                    recorded_ops.push(crate::commands::PlannedOp::Delete { path: src });
                 }
                 panel.clear_selection();
+
+                // 녹화 중이면 PlannedOp 기록 (panel 참조 해제 후)
+                if let Some(buf) = &mut self.recording {
+                    buf.extend(recorded_ops);
+                }
             }
             DialogKind::Rename => {
                 let new_name = dialog.input.clone();
                 let panel = self.active_panel_mut();
+                let mut recorded_op = None;
                 if let Some(entry) = panel.get_current_entry() {
-                    panel.fs.rename(&entry.path, &new_name)?;
+                    let old_path = entry.path.clone();
+                    panel.fs.rename(&old_path, &new_name)?;
+                    recorded_op = Some(crate::commands::PlannedOp::Rename { from: old_path, to: new_name });
+                }
+
+                // 녹화 중이면 PlannedOp 기록 (panel 참조 해제 후)
+                if let (Some(op), Some(buf)) = (recorded_op, &mut self.recording) {
+                    buf.push(op);
                 }
             }
             DialogKind::Pack => {
@@ -1585,6 +1701,10 @@ impl App {
                         }
                     }
                 });
+            }
+            DialogKind::SaveMacro | DialogKind::RunMacro => {
+                // 이 경우들은 ConfirmDialog 핸들러에서 먼저 처리되므로 여기 도달하지 않음
+                // 안전을 위해 빈 케이스로 처리
             }
         }
         Ok(())

@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub enum PlannedOp {
     Delete { path: PathBuf },
     Move { from: PathBuf, to: PathBuf },
@@ -89,5 +89,8 @@ pub enum Command {
     GitHistoryResult(String),
     AiFolderSync,
     SyncResult(String),
+    MacroRecord,
+    MacroList,
+    MacroRun,
     None,
 }

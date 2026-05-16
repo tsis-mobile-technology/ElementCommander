@@ -14,6 +14,8 @@ pub enum DialogKind {
     BatchRename,
     AddNote,
     GenerateScript,
+    SaveMacro,
+    RunMacro,
 }
 
 #[derive(Clone, Debug)]
@@ -140,6 +142,26 @@ impl DialogState {
         }
     }
 
+    pub fn new_save_macro() -> Self {
+        DialogState {
+            kind: DialogKind::SaveMacro,
+            input: String::new(),
+            cursor: 0,
+            message: "💾 매크로 이름 입력".to_string(),
+            error: None,
+        }
+    }
+
+    pub fn new_run_macro() -> Self {
+        DialogState {
+            kind: DialogKind::RunMacro,
+            input: String::new(),
+            cursor: 0,
+            message: "▶️  실행할 매크로 이름 입력".to_string(),
+            error: None,
+        }
+    }
+
     pub fn insert_char(&mut self, c: char) {
         if self.cursor <= self.input.len() {
             self.input.insert(self.cursor, c);
@@ -212,6 +234,8 @@ pub fn render_dialog(frame: &mut Frame, area: Rect, dialog: &DialogState) {
         DialogKind::BatchRename => ("  ✏️  배치 리네이밍  ", Color::Cyan),
         DialogKind::AddNote => ("  📝 파일 메모/태그  ", Color::Yellow),
         DialogKind::GenerateScript => ("  📜 배치 스크립트 생성  ", Color::Green),
+        DialogKind::SaveMacro => ("  💾 매크로 저장  ", Color::Blue),
+        DialogKind::RunMacro => ("  ▶️  매크로 실행  ", Color::Blue),
         };
 
 
