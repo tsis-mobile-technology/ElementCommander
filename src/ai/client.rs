@@ -638,3 +638,27 @@ impl AiClient {
             .unwrap_or_else(|| "응답을 받지 못했습니다".to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_final_result() {
+        // Case 1: Structured keywords
+        let input = "생각 중...\n\n이것은 생각입니다.\n\n결론:\n최종 결과물입니다.";
+        let result = AiClient::extract_final_result(input);
+        assert!(result.contains("최종 결과물입니다"));
+
+        // Case 2: Structured items
+        let input = "생각 중...\n\n**요약:**\n- 항목 1\n- 항목 2";
+        let result = AiClient::extract_final_result(input);
+        assert!(result.contains("**요약:**"));
+        assert!(result.contains("- 항목 1"));
+
+        // Case 3: Just paragraphs, take last long one
+        let input = "짧은 생각.\n\n이것은 아주 긴 마지막 문단입니다. 충분히 길어서 선택되어야 합니다.";
+        let result = AiClient::extract_final_result(input);
+        assert_eq!(result, "이것은 아주 긴 마지막 문단입니다. 충분히 길어서 선택되어야 합니다.");
+    }
+}

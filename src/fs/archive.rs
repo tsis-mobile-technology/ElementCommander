@@ -252,7 +252,10 @@ impl FileSystem for ArchiveFs {
                 if parts.len() == 1 {
                     // Direct file or directory
                     let mut e = entry.clone();
-                    e.name = first_part;
+                    e.name = first_part.clone();
+                    if e.is_dir {
+                        seen_dirs.insert(first_part);
+                    }
                     result.push(e);
                 } else if parts.len() > 1 {
                     // Entry is deeper, add the immediate directory if not already added
@@ -314,5 +317,47 @@ impl FileSystem for ArchiveFs {
         }
         self.entries.iter().any(|e| e.path == path && e.is_dir) ||
         self.entries.iter().any(|e| e.path.starts_with(path) && e.path != path)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use tempfile::tempdir;
+    use zip::write::FileOptions;
+
+    #[test]
+    fn test_zip_listing() {
+        let dir = tempdir().unwrap();
+        let zip_path = dir.path().join("test.zip");
+        
+        // Create a test zip file
+        {
+            let file = File::create(&zip_path).unwrap();
+            let mut zip = zip::ZipWriter::new(file);
+            
+            zip.start_file("file1.txt", FileOptions::default()).unwrap();
+            zip.write_all(b"content1").unwrap();
+            
+            zip.add_directory("dir1/", FileOptions::default()).unwrap();
+            zip.start_file("dir1/file2.txt", FileOptions::default()).unwrap();
+            zip.write_all(b"content2").unwrap();
+            
+            zip.finish().unwrap();
+        }
+
+        let fs = ArchiveFs::new(zip_path).unwrap();
+        
+        // Root listing
+        let entries = fs.list(Path::new("")).unwrap();
+        assert_eq!(entries.len(), 2);
+        assert!(entries.iter().any(|e| e.name == "file1.txt"));
+        assert!(entries.iter().any(|e| e.name == "dir1"));
+
+        // Dir1 listing
+        let entries = fs.list(Path::new("dir1")).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].name, "file2.txt");
     }
 }

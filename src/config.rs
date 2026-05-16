@@ -181,3 +181,37 @@ impl Config {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_config_default_serialization() {
+        let config = Config::default();
+        let toml_str = toml::to_string(&config).unwrap();
+        
+        let decoded: Config = toml::from_str(&toml_str).unwrap();
+        assert_eq!(decoded.ui.show_hidden, false);
+        assert_eq!(decoded.behavior.confirm_delete, true);
+    }
+
+    #[test]
+    fn test_notes_store_logic() {
+        let mut store = NotesStore::default();
+        store.set_note("test.txt".to_string(), "hello".to_string(), vec!["tag1".to_string()]);
+        
+        let note = store.get_note("test.txt").unwrap();
+        assert_eq!(note.memo, "hello");
+        assert_eq!(note.tags[0], "tag1");
+    }
+
+    #[test]
+    fn test_macros_store_logic() {
+        let mut store = MacrosStore::default();
+        store.add("my_macro".to_string(), vec![]);
+        
+        assert_eq!(store.list(), vec!["my_macro".to_string()]);
+        assert!(store.get("my_macro").is_some());
+    }
+}

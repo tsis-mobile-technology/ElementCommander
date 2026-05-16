@@ -92,3 +92,71 @@ pub fn find_files_with_criteria(root: &Path, criteria: &SearchCriteria) -> Vec<F
 
     results
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::File;
+    use std::io::Write;
+    use tempfile::tempdir;
+    use chrono::{Duration, TimeZone};
+
+    #[test]
+    fn test_search_criteria_deserialization() {
+        let json = r#"{
+            "pattern": "test",
+            "extension": "rs",
+            "min_size": 100,
+            "max_size": 1000,
+            "modified_after": "2026-05-10T12:00:00Z",
+            "modified_before": "2026-05-20T12:00:00Z"
+        }"#;
+
+        let criteria: SearchCriteria = serde_json::from_str(json).unwrap();
+        assert_eq!(criteria.pattern, Some("test".to_string()));
+        assert_eq!(criteria.extension, Some("rs".to_string()));
+        assert_eq!(criteria.min_size, Some(100));
+        assert_eq!(criteria.max_size, Some(1000));
+        assert!(criteria.modified_after.is_some());
+    }
+
+    #[test]
+    fn test_find_files_with_criteria() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("test_file.rs");
+        let mut file = File::create(&file_path).unwrap();
+        writeln!(file, "Hello, world!").unwrap();
+
+        let criteria = SearchCriteria {
+            pattern: Some("test".to_string()),
+            extension: Some("rs".to_string()),
+            ..Default::default()
+        };
+
+        let results = find_files_with_criteria(dir.path(), &criteria);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "test_file.rs");
+    }
+
+    #[test]
+    fn test_find_files_size_filter() {
+        let dir = tempdir().unwrap();
+        
+        let small_file = dir.path().join("small.txt");
+        let mut f1 = File::create(&small_file).unwrap();
+        f1.write_all(&[0; 10]).unwrap(); // 10 bytes
+
+        let large_file = dir.path().join("large.txt");
+        let mut f2 = File::create(&large_file).unwrap();
+        f2.write_all(&[0; 1000]).unwrap(); // 1000 bytes
+
+        let criteria = SearchCriteria {
+            min_size: Some(500),
+            ..Default::default()
+        };
+
+        let results = find_files_with_criteria(dir.path(), &criteria);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name, "large.txt");
+    }
+}

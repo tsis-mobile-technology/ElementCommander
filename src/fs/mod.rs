@@ -69,3 +69,19 @@ pub fn create_local_fs() -> Box<dyn FileSystem> {
 pub fn create_archive_fs(path: PathBuf) -> Result<Box<dyn FileSystem>> {
     Ok(Box::new(archive::ArchiveFs::new(path)?))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_format_size() {
+        assert_eq!(FileEntry::format_size_static(0), "0 B");
+        assert_eq!(FileEntry::format_size_static(512), "512 B");
+        assert_eq!(FileEntry::format_size_static(1024), "1.0 K");
+        assert_eq!(FileEntry::format_size_static(1024 * 1024), "1.0 M");
+        assert_eq!(FileEntry::format_size_static(1024 * 1024 * 1024), "1.0 G");
+        assert_eq!(FileEntry::format_size_static(1024 * 1024 * 1024 * 1024), "1.0 T");
+        assert_eq!(FileEntry::format_size_static(1500), "1.5 K");
+    }
+}

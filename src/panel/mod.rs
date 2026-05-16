@@ -259,3 +259,158 @@ impl PanelState {
         self.cursor = 0;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fs::FileSystem;
+    use chrono::{Duration, TimeZone, Local};
+    use std::sync::Arc;
+
+    struct MockFs {
+        entries: Vec<FileEntry>,
+    }
+
+    impl MockFs {
+        fn new() -> Self {
+            let now = Local.with_ymd_and_hms(2026, 5, 16, 12, 0, 0).unwrap();
+            Self {
+                entries: vec![
+                    FileEntry {
+                        name: "file3.txt".to_string(),
+                        path: PathBuf::from("file3.txt"),
+                        is_dir: false,
+                        size: 300,
+                        modified: now - Duration::days(1),
+                        permissions: 0,
+                    },
+                    FileEntry {
+                        name: "file1.txt".to_string(),
+                        path: PathBuf::from("file1.txt"),
+                        is_dir: false,
+                        size: 100,
+                        modified: now - Duration::days(3),
+                        permissions: 0,
+                    },
+                    FileEntry {
+                        name: "file2.txt".to_string(),
+                        path: PathBuf::from("file2.txt"),
+                        is_dir: false,
+                        size: 200,
+                        modified: now - Duration::days(2),
+                        permissions: 0,
+                    },
+                    FileEntry {
+                        name: "dir1".to_string(),
+                        path: PathBuf::from("dir1"),
+                        is_dir: true,
+                        size: 0,
+                        modified: now,
+                        permissions: 0,
+                    },
+                ],
+            }
+        }
+    }
+
+    impl FileSystem for MockFs {
+        fn list(&self, _path: &Path) -> Result<Vec<FileEntry>> {
+            Ok(self.entries.clone())
+        }
+        fn copy(&self, _src: &Path, _dst: &Path, _recursive: bool) -> Result<()> { Ok(()) }
+        fn move_entry(&self, _src: &Path, _dst: &Path) -> Result<()> { Ok(()) }
+        fn delete(&self, _path: &Path, _recursive: bool) -> Result<()> { Ok(()) }
+        fn mkdir(&self, _path: &Path) -> Result<()> { Ok(()) }
+        fn rename(&self, _path: &Path, _new_name: &str) -> Result<()> { Ok(()) }
+        fn exists(&self, _path: &Path) -> bool { true }
+        fn is_dir(&self, _path: &Path) -> bool { false }
+    }
+
+    fn setup_panel() -> PanelState {
+        let fs = Arc::new(Box::new(MockFs::new()) as Box<dyn FileSystem>);
+        PanelState {
+            path: PathBuf::from("/"),
+            entries: MockFs::new().entries,
+            cursor: 0,
+            selected: HashSet::new(),
+            sort_by: SortBy::Name,
+            reverse: false,
+            fs,
+            filter_query: None,
+            filtered_entries: Vec::new(),
+            search_mode: SearchMode::None,
+            archive_base: None,
+            show_hidden: true,
+            list_total_size: 0,
+            recursive_total_size: None,
+            is_calculating: false,
+        }
+    }
+
+    #[test]
+    fn test_sorting() {
+        let mut panel = setup_panel();
+        
+        // Sort by Name
+        panel.sort_by = SortBy::Name;
+        panel.apply_sort();
+        assert_eq!(panel.entries[0].name, "dir1");
+        assert_eq!(panel.entries[1].name, "file1.txt");
+        assert_eq!(panel.entries[2].name, "file2.txt");
+        assert_eq!(panel.entries[3].name, "file3.txt");
+
+        // Sort by Size
+        panel.sort_by = SortBy::Size;
+        panel.apply_sort();
+        assert_eq!(panel.entries[0].name, "dir1"); // size 0
+        assert_eq!(panel.entries[1].name, "file1.txt"); // size 100
+        assert_eq!(panel.entries[2].name, "file2.txt"); // size 200
+        assert_eq!(panel.entries[3].name, "file3.txt"); // size 300
+
+        // Reverse Sort
+        panel.reverse = true;
+        panel.apply_sort();
+        assert_eq!(panel.entries[0].name, "file3.txt");
+    }
+
+    #[test]
+    fn test_quick_filter() {
+        let mut panel = setup_panel();
+        panel.apply_quick_filter("file");
+        assert_eq!(panel.visible_entries().len(), 3);
+        assert!(panel.visible_entries().iter().all(|e| e.name.contains("file")));
+
+        panel.apply_quick_filter("file1");
+        assert_eq!(panel.visible_entries().len(), 1);
+        assert_eq!(panel.visible_entries()[0].name, "file1.txt");
+
+        panel.clear_filter();
+        assert_eq!(panel.visible_entries().len(), 4);
+    }
+
+    #[test]
+    fn test_wildcard_filter() {
+        let mut panel = setup_panel();
+        panel.apply_wildcard_filter("*.txt");
+        assert_eq!(panel.visible_entries().len(), 3);
+
+        panel.apply_wildcard_filter("dir*");
+        assert_eq!(panel.visible_entries().len(), 1);
+        assert_eq!(panel.visible_entries()[0].name, "dir1");
+    }
+
+    #[test]
+    fn test_selection() {
+        let mut panel = setup_panel();
+        panel.cursor = 1;
+        panel.toggle_select();
+        assert!(panel.selected.contains(&1));
+        assert_eq!(panel.get_selected_entries().len(), 1);
+
+        panel.select_all();
+        assert_eq!(panel.selected.len(), 4);
+
+        panel.clear_selection();
+        assert_eq!(panel.selected.len(), 0);
+    }
+}
