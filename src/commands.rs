@@ -61,6 +61,7 @@ pub enum Command {
     AiOldFiles,
     AiFileClassify,
     AiStorageOptimize,
+    AiGitHistory,
     AiGenerateReadme,
     AiAddNote,
     AiGenerateScript,
@@ -85,5 +86,6 @@ pub enum Command {
     OldFilesResult(String),
     ClassifyResult(String),
     StorageResult(String),
+    GitHistoryResult(String),
     None,
 }

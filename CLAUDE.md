@@ -153,6 +153,7 @@ cargo run
 | Alt+O | Analyze old files for cleanup |
 | Alt+F | Classify files by type |
 | Alt+K | Analyze disk usage and storage |
+| Alt+V | Analyze Git change history |
 | F5 | Copy / Extract (from archive) |
 | Alt+F5 | Pack files (into archive) |
 | F6 | Move |
@@ -193,7 +194,7 @@ cargo run
 - [x] Theme system (Classic/Dark)
 - [x] File viewer with syntax highlighting (F3)
 
-### 🚀 Phase 6: AI Commander (In Progress - 16/20 Features)
+### 🚀 Phase 6: AI Commander (In Progress - 17/20 Features)
 - [x] Ctrl+G Natural language commands
 - [x] Alt+B Batch rename with AI suggestions
 - [x] Alt+R README auto-generation
@@ -210,7 +211,7 @@ cargo run
 - [x] Alt+O Old file cleanup recommendations
 - [x] Alt+F Auto file classification
 - [x] Alt+K Storage optimization analysis
-- [ ] Git change history analysis
+- [x] Alt+V Git change history analysis
 - [ ] File operation macro learning
 - [ ] Next action prediction
 - [ ] Folder sync analysis

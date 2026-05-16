@@ -125,6 +125,15 @@ impl AiClient {
         self.query(&prompt).await
     }
 
+    pub async fn analyze_git_history(&self, summary: &str) -> Result<crate::ai::AiResponse> {
+        let prompt = format!(
+            "다음은 Git 저장소 변경 이력 분석 결과입니다.\n\n{}\n\n이 프로젝트의 개발 패턴이나 주목할 점을 분석해주세요.",
+            summary
+        );
+
+        self.query(&prompt).await
+    }
+
     pub async fn interpret_command(
         &self,
         nl_command: &str,

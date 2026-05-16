@@ -946,6 +946,49 @@ impl App {
                 });
             }
 
+            Command::AiGitHistory => {
+                let path = self.active_panel().path.clone();
+                let display_path = path.display().to_string();
+
+                tracing::info!("Git 이력 분석 시작: {}", display_path);
+                self.ai_state = Some(crate::ai::AiState::loading(format!("Git 이력 분석: {}", display_path)));
+                self.mode = AppMode::AiChat;
+
+                let tx = self.tx.clone();
+                tokio::spawn(async move {
+                    // Git 저장소 확인
+                    if !crate::ops::git_history::is_git_repo(&path) {
+                        let _ = tx.send(Command::GitHistoryResult("Git 저장소를 찾을 수 없습니다.".to_string()));
+                        return;
+                    }
+
+                    let client = crate::ai::AiClient::new(
+                        "http://localhost:8080/v1".to_string(),
+                        "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                    );
+
+                    match crate::ops::git_history::analyze_git_history(&path) {
+                        Ok(report) => {
+                            let summary = crate::ops::git_history::format_report(&report);
+
+                            // AI에게 분석 요청
+                            match client.analyze_git_history(&summary).await {
+                                Ok(ai_response) => {
+                                    let _ = tx.send(Command::AiResponse(ai_response));
+                                }
+                                Err(_) => {
+                                    // AI 실패 시 요약만 표시
+                                    let _ = tx.send(Command::GitHistoryResult(summary));
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            let _ = tx.send(Command::AiError(format!("Git 이력 분석 실패: {}", e)));
+                        }
+                    }
+                });
+            }
+
             Command::AiGenerateReadme => {
                 let entry = self.active_panel().get_current_entry();
                 let root_path = if let Some(e) = entry {
@@ -1055,6 +1098,10 @@ impl App {
             }
             Command::StorageResult(text) => {
                 // AI 없이 저장소 분석 결과 표시 (fallback)
+                self.ai_state = Some(crate::ai::AiState::new(crate::ai::AiResponse::new(None, text)));
+            }
+            Command::GitHistoryResult(text) => {
+                // AI 없이 Git 이력 결과 표시 (fallback)
                 self.ai_state = Some(crate::ai::AiState::new(crate::ai::AiResponse::new(None, text)));
             }
             Command::AiCancel => {
