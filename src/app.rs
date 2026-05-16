@@ -1290,6 +1290,89 @@ impl App {
                 }
             }
 
+            Command::AiNextAction => {
+                let current_dir = self.active_panel().path.display().to_string();
+                let panel = self.active_panel();
+
+                // 파일 목록 생성
+                let file_listing = panel.entries.iter()
+                    .map(|e| {
+                        let size_str = if e.is_dir {
+                            "DIR".to_string()
+                        } else {
+                            crate::fs::FileEntry::format_size_static(e.size)
+                        };
+                        format!("{} ({})", e.name, size_str)
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n");
+
+                // 선택된 파일
+                let selected = if panel.get_selected_entries().is_empty() {
+                    "(없음)".to_string()
+                } else {
+                    panel.get_selected_entries().iter()
+                        .map(|e| e.name.clone())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                };
+
+                // 최근 작업 (녹화 버퍼에서)
+                let recent_ops = self.recording.as_ref()
+                    .map(|buf| {
+                        if buf.is_empty() {
+                            "(없음)".to_string()
+                        } else {
+                            buf.iter().rev().take(5)
+                                .map(|op| {
+                                    match op {
+                                        crate::commands::PlannedOp::Copy { .. } => "Copy",
+                                        crate::commands::PlannedOp::Move { .. } => "Move",
+                                        crate::commands::PlannedOp::Delete { .. } => "Delete",
+                                        crate::commands::PlannedOp::Mkdir { .. } => "Mkdir",
+                                        crate::commands::PlannedOp::Rename { .. } => "Rename",
+                                    }
+                                })
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        }
+                    })
+                    .unwrap_or_else(|| "(없음)".to_string());
+
+                let context = format!(
+                    "Current directory: {}\n\nFiles:\n{}\n\nSelected files: {}\n\nRecent operations: {}",
+                    current_dir, file_listing, selected, recent_ops
+                );
+
+                tracing::info!("다음 작업 예측 시작");
+                self.ai_state = Some(crate::ai::AiState::loading("다음 작업 예측 중...".to_string()));
+                self.mode = AppMode::AiChat;
+
+                let tx = self.tx.clone();
+                tokio::spawn(async move {
+                    let client = crate::ai::AiClient::new(
+                        "http://localhost:8080/v1".to_string(),
+                        "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                    );
+
+                    match client.predict_next_action(&context).await {
+                        Ok(resp) => {
+                            match parse_planned_ops(&resp.result) {
+                                Ok(ops) if !ops.is_empty() => {
+                                    let _ = tx.send(Command::AiCommandParsed(ops));
+                                }
+                                _ => {
+                                    let _ = tx.send(Command::AiResponse(resp));
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            let _ = tx.send(Command::AiError(format!("작업 예측 실패: {}", e)));
+                        }
+                    }
+                });
+            }
+
             Command::MacroRecord => {
                 if self.recording.is_some() {
                     // 녹화 중 - 중지하고 이름 입력 다이얼로그 표시

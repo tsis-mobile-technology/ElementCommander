@@ -92,5 +92,6 @@ pub enum Command {
     MacroRecord,
     MacroList,
     MacroRun,
+    AiNextAction,
     None,
 }

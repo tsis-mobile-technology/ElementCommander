@@ -158,6 +158,7 @@ cargo run
 | Ctrl+R | Toggle macro recording |
 | Alt+M | List saved macros |
 | Alt+P | Execute a saved macro |
+| Alt+W | Predict next useful file operations |
 | F5 | Copy / Extract (from archive) |
 | Alt+F5 | Pack files (into archive) |
 | F6 | Move |
@@ -198,7 +199,7 @@ cargo run
 - [x] Theme system (Classic/Dark)
 - [x] File viewer with syntax highlighting (F3)
 
-### 🚀 Phase 6: AI Commander (In Progress - 19/20 Features)
+### ✅ Phase 6: AI Commander (Complete - 20/20 Features)
 - [x] Ctrl+G Natural language commands
 - [x] Alt+B Batch rename with AI suggestions
 - [x] Alt+R README auto-generation
@@ -218,7 +219,7 @@ cargo run
 - [x] Alt+V Git change history analysis
 - [x] Alt+Y Folder sync analysis
 - [x] File operation macro learning (Ctrl+R / Alt+M / Alt+P)
-- [ ] Next action prediction
+- [x] Next action prediction (Alt+W)
 
 ---
 

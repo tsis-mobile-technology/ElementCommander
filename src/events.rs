@@ -50,6 +50,7 @@ pub fn handle_key_event(key: KeyEvent) -> Command {
         KeyCode::Char('y') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiFolderSync,
         KeyCode::Char('m') if key.modifiers.contains(KeyModifiers::ALT) => Command::MacroList,
         KeyCode::Char('p') if key.modifiers.contains(KeyModifiers::ALT) => Command::MacroRun,
+        KeyCode::Char('w') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiNextAction,
         KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => Command::MacroRecord,
         KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiGenerateReadme,
         KeyCode::Char('n') if key.modifiers.contains(KeyModifiers::ALT) => Command::AiAddNote,

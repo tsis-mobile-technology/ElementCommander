@@ -143,6 +143,26 @@ impl AiClient {
         self.query(&prompt).await
     }
 
+    pub async fn predict_next_action(&self, context: &str) -> Result<crate::ai::AiResponse> {
+        let prompt = format!(
+            "You are a file manager assistant. Return ONLY a JSON array of file operations.\n\n\
+             Current context:\n{}\n\n\
+             Based on this context, suggest 1-3 useful file operations the user might want to perform next.\n\
+             Return ONLY valid JSON array with this format (no explanations):\n\
+             [\n  \
+               {{\"op\": \"delete\"|\"move\"|\"copy\"|\"mkdir\"|\"rename\", \
+                 \"path\": \"/absolute/path\"}},\n  \
+               {{\"op\": \"copy\"|\"move\", \
+                 \"from\": \"/absolute/path\", \"to\": \"/absolute/path\"}},\n  \
+               {{\"op\": \"rename\", \
+                 \"from\": \"/absolute/path\", \"to\": \"new_name\"}}\n\
+             ]",
+            context
+        );
+
+        self.query(&prompt).await
+    }
+
     pub async fn interpret_command(
         &self,
         nl_command: &str,
