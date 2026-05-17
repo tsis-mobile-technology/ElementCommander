@@ -10,6 +10,8 @@ pub struct Config {
     pub bookmarks: Vec<Bookmark>,
     #[serde(default)]
     pub history: HistoryConfig,
+    #[serde(default)]
+    pub ai: AiConfig,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -126,6 +128,15 @@ pub struct BehaviorConfig {
     pub default_sort: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct AiConfig {
+    pub enabled: bool,
+    pub server_url: String,
+    pub model: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub api_key: Option<String>,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Bookmark {
     pub name: String,
@@ -146,6 +157,12 @@ impl Default for Config {
             },
             bookmarks: Vec::new(),
             history: HistoryConfig::default(),
+            ai: AiConfig {
+                enabled: true,
+                server_url: "http://localhost:4000/v1".to_string(),
+                model: "gpt-4o".to_string(),
+                api_key: Some("sk-3VtTCTh5m80OGnCyqweo0g".to_string()),
+            },
         }
     }
 }

@@ -536,10 +536,12 @@ impl App {
                         self.mode = AppMode::AiChat;
 
                         let tx = self.tx.clone();
+                        let ai_config = self.config.ai.clone();
                         tokio::spawn(async move {
-                            let client = crate::ai::AiClient::new(
-                                "http://localhost:8080/v1".to_string(),
-                                "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                            let client = crate::ai::AiClient::with_api_key(
+                                ai_config.server_url,
+                                ai_config.model,
+                                ai_config.api_key,
                             );
 
                             match std::fs::read_to_string(&path) {
@@ -584,10 +586,12 @@ impl App {
                         self.mode = AppMode::AiChat;
 
                         let tx = self.tx.clone();
+                        let ai_config = self.config.ai.clone();
                         tokio::spawn(async move {
-                            let client = crate::ai::AiClient::new(
-                                "http://localhost:8080/v1".to_string(),
-                                "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                            let client = crate::ai::AiClient::with_api_key(
+                                ai_config.server_url,
+                                ai_config.model,
+                                ai_config.api_key,
                             );
 
                             match std::fs::read_to_string(&path) {
@@ -631,10 +635,12 @@ impl App {
                             self.mode = AppMode::AiChat;
 
                             let tx = self.tx.clone();
+                            let ai_config = self.config.ai.clone();
                             tokio::spawn(async move {
-                                let client = crate::ai::AiClient::new(
-                                    "http://localhost:8080/v1".to_string(),
-                                    "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                                let client = crate::ai::AiClient::with_api_key(
+                                    ai_config.server_url,
+                                    ai_config.model,
+                                    ai_config.api_key,
                                 );
 
                                 // 이미지 파일 정보 (간단한 메타 정보 수집)
@@ -684,10 +690,12 @@ impl App {
                             self.mode = AppMode::AiChat;
 
                             let tx = self.tx.clone();
+                            let ai_config = self.config.ai.clone();
                             tokio::spawn(async move {
-                                let client = crate::ai::AiClient::new(
-                                    "http://localhost:8080/v1".to_string(),
-                                    "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                                let client = crate::ai::AiClient::with_api_key(
+                                    ai_config.server_url,
+                                    ai_config.model,
+                                    ai_config.api_key,
                                 );
 
                                 match std::fs::read_to_string(&path) {
@@ -733,10 +741,12 @@ impl App {
                         self.mode = AppMode::AiChat;
 
                         let tx = self.tx.clone();
+                        let ai_config = self.config.ai.clone();
                         tokio::spawn(async move {
-                            let client = crate::ai::AiClient::new(
-                                "http://localhost:8080/v1".to_string(),
-                                "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                            let client = crate::ai::AiClient::with_api_key(
+                                ai_config.server_url,
+                                ai_config.model,
+                                ai_config.api_key,
                             );
 
                             match (std::fs::read_to_string(&path1), std::fs::read_to_string(&path2)) {
@@ -780,10 +790,12 @@ impl App {
                         self.mode = AppMode::AiChat;
 
                         let tx = self.tx.clone();
+                        let ai_config = self.config.ai.clone();
                         tokio::spawn(async move {
-                            let client = crate::ai::AiClient::new(
-                                "http://localhost:8080/v1".to_string(),
-                                "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                            let client = crate::ai::AiClient::with_api_key(
+                                ai_config.server_url,
+                                ai_config.model,
+                                ai_config.api_key,
                             );
 
                             // 폴더 구조 정보 수집
@@ -828,10 +840,12 @@ impl App {
                 self.mode = AppMode::AiChat;
 
                 let tx = self.tx.clone();
+                let ai_config = self.config.ai.clone();
                 tokio::spawn(async move {
-                    let client = crate::ai::AiClient::new(
-                        "http://localhost:8080/v1".to_string(),
-                        "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                    let client = crate::ai::AiClient::with_api_key(
+                        ai_config.server_url,
+                        ai_config.model,
+                        ai_config.api_key,
                     );
 
                     match crate::ops::duplicate::find_duplicates(&path) {
@@ -883,10 +897,12 @@ impl App {
                 self.mode = AppMode::AiChat;
 
                 let tx = self.tx.clone();
+                let ai_config = self.config.ai.clone();
                 tokio::spawn(async move {
-                    let client = crate::ai::AiClient::new(
-                        "http://localhost:8080/v1".to_string(),
-                        "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                    let client = crate::ai::AiClient::with_api_key(
+                        ai_config.server_url,
+                        ai_config.model,
+                        ai_config.api_key,
                     );
 
                     match crate::ops::cleanup::analyze_old_files(&path) {
@@ -920,10 +936,12 @@ impl App {
                 self.mode = AppMode::AiChat;
 
                 let tx = self.tx.clone();
+                let ai_config = self.config.ai.clone();
                 tokio::spawn(async move {
-                    let client = crate::ai::AiClient::new(
-                        "http://localhost:8080/v1".to_string(),
-                        "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                    let client = crate::ai::AiClient::with_api_key(
+                        ai_config.server_url,
+                        ai_config.model,
+                        ai_config.api_key,
                     );
 
                     match crate::ops::classify::classify_files(&path) {
@@ -957,10 +975,12 @@ impl App {
                 self.mode = AppMode::AiChat;
 
                 let tx = self.tx.clone();
+                let ai_config = self.config.ai.clone();
                 tokio::spawn(async move {
-                    let client = crate::ai::AiClient::new(
-                        "http://localhost:8080/v1".to_string(),
-                        "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                    let client = crate::ai::AiClient::with_api_key(
+                        ai_config.server_url,
+                        ai_config.model,
+                        ai_config.api_key,
                     );
 
                     match crate::ops::storage::analyze_storage(&path) {
@@ -994,6 +1014,7 @@ impl App {
                 self.mode = AppMode::AiChat;
 
                 let tx = self.tx.clone();
+                let ai_config = self.config.ai.clone();
                 tokio::spawn(async move {
                     // Git 저장소 확인
                     if !crate::ops::git_history::is_git_repo(&path) {
@@ -1001,9 +1022,10 @@ impl App {
                         return;
                     }
 
-                    let client = crate::ai::AiClient::new(
-                        "http://localhost:8080/v1".to_string(),
-                        "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                    let client = crate::ai::AiClient::with_api_key(
+                        ai_config.server_url,
+                        ai_config.model,
+                        ai_config.api_key,
                     );
 
                     match crate::ops::git_history::analyze_git_history(&path) {
@@ -1038,10 +1060,12 @@ impl App {
                 self.mode = AppMode::AiChat;
 
                 let tx = self.tx.clone();
+                let ai_config = self.config.ai.clone();
                 tokio::spawn(async move {
-                    let client = crate::ai::AiClient::new(
-                        "http://localhost:8080/v1".to_string(),
-                        "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                    let client = crate::ai::AiClient::with_api_key(
+                        ai_config.server_url,
+                        ai_config.model,
+                        ai_config.api_key,
                     );
 
                     match crate::ops::sync::analyze_sync(&left_path, &right_path) {
@@ -1084,10 +1108,12 @@ impl App {
                 self.mode = AppMode::AiChat;
 
                 let tx = self.tx.clone();
+                let ai_config = self.config.ai.clone();
                 tokio::spawn(async move {
-                    let client = crate::ai::AiClient::new(
-                        "http://localhost:8080/v1".to_string(),
-                        "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                    let client = crate::ai::AiClient::with_api_key(
+                        ai_config.server_url,
+                        ai_config.model,
+                        ai_config.api_key,
                     );
 
                     // 1. 폴더 구조 정보 수집
@@ -1349,10 +1375,12 @@ impl App {
                 self.mode = AppMode::AiChat;
 
                 let tx = self.tx.clone();
+                let ai_config = self.config.ai.clone();
                 tokio::spawn(async move {
-                    let client = crate::ai::AiClient::new(
-                        "http://localhost:8080/v1".to_string(),
-                        "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                    let client = crate::ai::AiClient::with_api_key(
+                        ai_config.server_url,
+                        ai_config.model,
+                        ai_config.api_key,
                     );
 
                     match client.predict_next_action(&context).await {
@@ -1464,17 +1492,21 @@ impl App {
                 self.mode = AppMode::AiChat;
 
                 let tx = self.tx.clone();
+                let ai_config = self.config.ai.clone();
                 tokio::spawn(async move {
-                    let client = crate::ai::AiClient::new(
-                        "http://localhost:8080/v1".to_string(),
-                        "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                    let client = crate::ai::AiClient::with_api_key(
+                        ai_config.server_url,
+                        ai_config.model,
+                        ai_config.api_key,
                     );
 
                     match client.interpret_command(&nl_command, &current_dir, &file_listing).await {
                         Ok(ai_response) => {
+                            tracing::info!("✓ interpret_command 응답: {}", ai_response.result);
                             // JSON 파싱 시도
                             match parse_planned_ops(&ai_response.result) {
                                 Ok(ops) => {
+                                    tracing::info!("✓ JSON 파싱 성공, ops 개수: {}", ops.len());
                                     if ops.is_empty() {
                                         let _ = tx.send(Command::AiError(
                                             "❌ 명령 해석 실패: AI가 실행할 작업을 찾을 수 없습니다.\n\n현재 폴더의 파일을 확인하고 다시 시도해주세요.".to_string()
@@ -1532,10 +1564,12 @@ impl App {
                 self.mode = AppMode::AiChat;
 
                 let tx = self.tx.clone();
+                let ai_config = self.config.ai.clone();
                 tokio::spawn(async move {
-                    let client = crate::ai::AiClient::new(
-                        "http://localhost:8080/v1".to_string(),
-                        "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                    let client = crate::ai::AiClient::with_api_key(
+                        ai_config.server_url,
+                        ai_config.model,
+                        ai_config.api_key,
                     );
 
                     match client.batch_rename(&pattern, &current_dir, &file_listing).await {
@@ -1590,10 +1624,12 @@ impl App {
                     self.mode = AppMode::AiChat;
 
                     let tx = self.tx.clone();
+                    let ai_config = self.config.ai.clone();
                     tokio::spawn(async move {
-                        let client = crate::ai::AiClient::new(
-                            "http://localhost:8080/v1".to_string(),
-                            "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                        let client = crate::ai::AiClient::with_api_key(
+                            ai_config.server_url,
+                            ai_config.model,
+                            ai_config.api_key,
                         );
 
                         match client.interpret_search_query(&query).await {
@@ -1769,10 +1805,12 @@ impl App {
                 self.mode = AppMode::AiChat;
 
                 let tx = self.tx.clone();
+                let ai_config = self.config.ai.clone();
                 tokio::spawn(async move {
-                    let client = crate::ai::AiClient::new(
-                        "http://localhost:8080/v1".to_string(),
-                        "Qwen_Qwen3.6-35B-A3B-Q4_0.gguf".to_string(),
+                    let client = crate::ai::AiClient::with_api_key(
+                        ai_config.server_url,
+                        ai_config.model,
+                        ai_config.api_key,
                     );
 
                     match client.generate_batch_script(&file_listing, &instruction).await {

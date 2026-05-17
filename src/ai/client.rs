@@ -5,6 +5,7 @@ use serde_json::json;
 pub struct AiClient {
     base_url: String,
     model: String,
+    api_key: Option<String>,
     client: Client,
 }
 
@@ -27,10 +28,17 @@ struct ChatMessage {
 }
 
 impl AiClient {
-    pub fn new(base_url: String, model: String) -> Self {
+    pub fn with_api_key(base_url: String, model: String, api_key: Option<String>) -> Self {
+        let has_key = api_key.is_some();
+        tracing::info!("AiClient 생성: URL={}, Model={}, API키 있음={}", base_url, model, has_key);
+        if let Some(key) = &api_key {
+            tracing::info!("API키: {}...{}", &key[..std::cmp::min(10, key.len())],
+                         &key[std::cmp::max(key.len().saturating_sub(4), 0)..]);
+        }
         Self {
             base_url,
             model,
+            api_key,
             client: Client::new(),
         }
     }
@@ -186,14 +194,21 @@ impl AiClient {
             ],
             "temperature": 0.3,
             "top_p": 0.9,
-            "max_tokens": 1024,
+            "max_tokens": 2048,
         });
 
-        let response = self
-            .client
-            .post(&url)
+        let mut req = self.client.post(&url);
+
+        if let Some(api_key) = &self.api_key {
+            tracing::info!("✓ Authorization 헤더 추가");
+            req = req.header("Authorization", format!("Bearer {}", api_key));
+        } else {
+            tracing::warn!("❌ API 키 없음! Authorization 헤더 추가 불가");
+        }
+
+        let response = req
             .json(&body)
-            .timeout(std::time::Duration::from_secs(30))
+            .timeout(std::time::Duration::from_secs(120))
             .send()
             .await
             .map_err(|e| {
@@ -237,20 +252,49 @@ impl AiClient {
             .and_then(|c| c.as_str())
             .map(|s| s.to_string());
 
-        // Qwen 모델은 content가 비어있고 reasoning_content에 실제 응답을 넣을 수 있음
-        if content.is_empty() {
+        // reasoning_content에서 JSON 추출 시도 (content가 비어있거나 JSON이 없을 때)
+        if content.is_empty() || !content.trim().starts_with('[') {
             if let Some(reasoning) = &thinking {
-                tracing::debug!("content가 비어있음, reasoning_content에서 JSON 추출 시도...");
-                if let Some(start) = reasoning.find('[') {
-                    if let Some(end) = reasoning.rfind(']') {
-                        content = reasoning[start..=end].to_string();
+                tracing::info!("content가 비어있음 ({}글자), reasoning_content에서 JSON 추출 시도...", content.len());
+
+                // 여러 형식 시도: `[...]` 또는 `{...}` 형식
+                let mut found = false;
+                for bracket in &['[', '{'] {
+                    let end_bracket = if *bracket == '[' { ']' } else { '}' };
+
+                    // 마지막 JSON 구조부터 역순 검색 (가장 최근의 답변이 마지막일 가능성)
+                    if let Some(start) = reasoning.rfind(*bracket) {
+                        if let Some(end) = reasoning[start..].rfind(end_bracket) {
+                            let extracted = &reasoning[start..start + end + 1];
+                            tracing::debug!("추출 시도: {} 글자, 시작 문자: {}", extracted.len(), bracket);
+
+                            // JSON 유효성 검증
+                            match serde_json::from_str::<serde_json::Value>(extracted) {
+                                Ok(_) => {
+                                    content = extracted.to_string();
+                                    tracing::info!("✓ JSON 추출 성공! ({}글자)", content.len());
+                                    found = true;
+                                    break;
+                                }
+                                Err(e) => {
+                                    tracing::debug!("JSON 파싱 실패: {}", e);
+                                }
+                            }
+                        }
                     }
+                }
+
+                if !found {
+                    tracing::warn!("JSON 추출 실패, 빈 배열로 폴백");
+                    content = "[]".to_string();
                 }
             }
         }
 
-        tracing::debug!("AI 명령 해석 응답: {} 글자", content.len());
-        tracing::debug!("AI 응답 내용: {}", content);
+        tracing::info!("AI 명령 해석 응답: {} 글자", content.len());
+        tracing::info!("전체 응답 데이터: {}", serde_json::to_string_pretty(&data).unwrap_or_default());
+        tracing::info!("AI 응답 내용 (처음 500글자): {}",
+            if content.len() > 500 { &content[..500] } else { &content });
 
         Ok(crate::ai::AiResponse::new(thinking, content))
     }
@@ -282,15 +326,22 @@ impl AiClient {
             ],
             "temperature": 0.3,
             "top_p": 0.9,
-            "max_tokens": 1024,
+            "max_tokens": 2048,
         });
 
         eprintln!("[배치리네이밍] HTTP 요청 전송 중...");
-        let response = self
-            .client
-            .post(&url)
+        let mut req = self.client.post(&url);
+
+        if let Some(api_key) = &self.api_key {
+            tracing::info!("✓ Authorization 헤더 추가");
+            req = req.header("Authorization", format!("Bearer {}", api_key));
+        } else {
+            tracing::warn!("❌ API 키 없음! Authorization 헤더 추가 불가");
+        }
+
+        let response = req
             .json(&body)
-            .timeout(std::time::Duration::from_secs(30))
+            .timeout(std::time::Duration::from_secs(120))
             .send()
             .await
             .map_err(|e| {
@@ -495,14 +546,21 @@ impl AiClient {
             ],
             "temperature": 0.7,
             "top_p": 0.9,
-            "max_tokens": 512,
+            "max_tokens": 2048,
         });
 
-        let response = self
-            .client
-            .post(&url)
+        let mut req = self.client.post(&url);
+
+        if let Some(api_key) = &self.api_key {
+            tracing::info!("✓ Authorization 헤더 추가");
+            req = req.header("Authorization", format!("Bearer {}", api_key));
+        } else {
+            tracing::warn!("❌ API 키 없음! Authorization 헤더 추가 불가");
+        }
+
+        let response = req
             .json(&body)
-            .timeout(std::time::Duration::from_secs(30))
+            .timeout(std::time::Duration::from_secs(120))
             .send()
             .await
             .map_err(|e| {

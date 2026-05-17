@@ -14,6 +14,7 @@ pub enum FileType {
     Other,
 }
 
+#[allow(dead_code)]
 pub struct FileGroup {
     pub type_name: &'static str,
     pub file_type: FileType,

@@ -4,6 +4,7 @@ use std::path::Path;
 use walkdir::WalkDir;
 use crate::fs::FileEntry;
 
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct DiffEntry {
     pub relative_path: String,
